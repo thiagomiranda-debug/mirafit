@@ -90,7 +90,7 @@ function resolveQuartelTokens(keys?: string[]): Set<string> {
   return tokens;
 }
 
-/** Músculos que tipicamente são trabalhados com exercícios compostos (multi-articulares) */
+/** Músculos trabalhados por exercícios compostos (multi-articulares) */
 const COMPOUND_MUSCLES = new Set<string>([
   "Peitorais",
   "Dorsal",
@@ -102,24 +102,178 @@ const COMPOUND_MUSCLES = new Set<string>([
   "Trapézio",
 ]);
 
-/** Prioridade de equipamento dentro da mesma categoria (menor = primeiro) */
-const EQUIPMENT_PRIORITY: Record<string, number> = {
-  "barbell": 0,
-  "dumbbell": 1,
-  "body weight": 2,
-  "body_weight": 2,
-  "weighted_body_weight": 2,
-  "kettlebell": 3,
-  "leverage machine": 4,
-  "leverage_machine": 4,
-  "cable": 5,
+/** Peso muscular para distribuição de volume dentro da rotina.
+ * Músculos maiores recebem proporcionalmente mais exercícios. */
+const MUSCLE_WEIGHTS: Record<string, number> = {
+  "Peitorais": 3,
+  "Dorsal": 3,
+  "Quadríceps": 3,
+  "Posterior de Coxa": 2,
+  "Glúteos": 2,
+  "Costas Superior": 2,
+  "Deltoides": 2,
+  "Trapézio": 1,
+  "Bíceps": 1,
+  "Tríceps": 1,
+  "Abdômen": 1,
+  "Panturrilhas": 1,
+  "Adutores": 1,
+  "Abdutores": 1,
+  "Antebraços": 1,
+};
+
+/** Score base por equipamento (maior = mais preferido) — reflete hierarquia
+ * clássica: pesos livres > máquinas articuladas > máquinas de isolamento. */
+const EQUIPMENT_SCORE: Record<string, number> = {
+  "barbell": 35,
+  "olympic barbell": 35,
+  "trap bar": 32,
+  "dumbbell": 28,
+  "ez barbell": 24,
+  "kettlebell": 22,
+  "body weight": 20,
+  "weighted_body_weight": 18,
+  "weighted": 18,
+  "smith machine": 16,
+  "cable": 18,
+  "leverage machine": 14,
+  "leverage_machine": 14,
+  "sled machine": 14,
+  "assisted": 10,
+  "resistance band": 8,
+  "band": 8,
+  "medicine ball": 6,
+  "stability ball": 5,
+  "bosu ball": 4,
+  "rope": 8,
+  "roller": 3,
 };
 
 const CARDIO_EQUIPMENTS = new Set<string>([
   'cardio',
   'stationary bike',
   'elliptical machine',
+  'stepmill machine',
+  'skierg machine',
+  'upper body ergometer',
 ]);
+
+/**
+ * Keywords dos exercícios "gold" por grupo muscular — os movimentos mais
+ * efetivos e estudados de cada grupo. Matches em `name` (inglês do catálogo)
+ * ganham um boost grande no score.
+ */
+const TOP_EXERCISE_PATTERNS: Record<string, RegExp[]> = {
+  "Peitorais": [
+    /bench press/i,
+    /incline.*(press|bench)/i,
+    /decline.*(press|bench)/i,
+    /dumbbell press/i,
+    /dumbbell fly|chest fly/i,
+    /push.?up/i,
+    /\bdip\b/i,
+    /cable crossover/i,
+  ],
+  "Dorsal": [
+    /pull.?up/i,
+    /chin.?up/i,
+    /lat.?pull.?down|pulldown/i,
+    /\brow\b/i,
+    /pullover/i,
+  ],
+  "Costas Superior": [
+    /bent.?over row|barbell row|seal row/i,
+    /\brow\b/i,
+    /face.?pull/i,
+    /reverse fly/i,
+  ],
+  "Trapézio": [
+    /shrug/i,
+    /upright.?row/i,
+    /farmer/i,
+    /rack pull/i,
+  ],
+  "Quadríceps": [
+    /\bsquat\b/i,
+    /leg press/i,
+    /front squat/i,
+    /\blunge\b/i,
+    /bulgarian.*split/i,
+    /leg extension/i,
+    /hack squat/i,
+    /step.?up/i,
+  ],
+  "Posterior de Coxa": [
+    /deadlift/i,
+    /romanian|\brdl\b/i,
+    /stiff.?leg/i,
+    /good.?morning/i,
+    /\bleg curl\b|hamstring curl/i,
+    /glute.?ham/i,
+  ],
+  "Glúteos": [
+    /hip thrust/i,
+    /glute bridge/i,
+    /romanian|\brdl\b/i,
+    /bulgarian.*split/i,
+    /cable.*pull.?through/i,
+    /kickback/i,
+    /\bsquat\b/i,
+  ],
+  "Deltoides": [
+    /overhead press|shoulder press/i,
+    /military press/i,
+    /push.?press/i,
+    /arnold press/i,
+    /lateral raise/i,
+    /front raise/i,
+    /rear delt/i,
+    /upright.?row/i,
+  ],
+  "Bíceps": [
+    /barbell curl/i,
+    /dumbbell curl/i,
+    /hammer curl/i,
+    /preacher/i,
+    /incline.*curl/i,
+    /chin.?up/i,
+  ],
+  "Tríceps": [
+    /close.?grip.*(press|bench)/i,
+    /skull.?crusher|lying triceps/i,
+    /triceps.*extension|french press/i,
+    /\bpushdown\b|push.?down/i,
+    /\bdip\b/i,
+    /overhead.*triceps/i,
+  ],
+  "Abdômen": [
+    /plank/i,
+    /crunch/i,
+    /leg raise/i,
+    /ab.?wheel/i,
+    /hanging.*raise/i,
+    /russian twist/i,
+    /hollow/i,
+    /\bsit.?up\b/i,
+  ],
+  "Panturrilhas": [
+    /calf raise/i,
+    /calf press/i,
+    /donkey calf/i,
+  ],
+  "Antebraços": [
+    /wrist curl/i,
+    /reverse curl/i,
+    /farmer/i,
+  ],
+};
+
+/** Regex amplo para detectar movimento composto (multi-articular) */
+const COMPOUND_NAME_RE =
+  /(?:bench press|overhead press|shoulder press|military press|push.?press|\bsquat\b|leg press|deadlift|romanian|\brdl\b|good.?morning|\blunge\b|bulgarian|step.?up|\brow\b|pull.?up|pull.?down|chin.?up|\bdip\b|hip thrust|clean|snatch|thruster|trap.?bar|hack squat)/i;
+
+const ISOLATION_NAME_RE =
+  /(?:curl|fly|raise|extension|kickback|pullover|crunch|shrug|calf|wrist|pushdown|push.?down|skull|triceps.*extension)/i;
 
 /** Mapeia tags estruturadas de restrição para músculos a evitar no split */
 const RESTRICTION_TO_MUSCLES: Record<RestrictionTag, string[]> = {
@@ -224,35 +378,172 @@ const MUSCLE_GROUP_NAMES: Record<string, string> = {
   "Abdômen": "Abdômen",
 };
 
-// Configuração de sets/reps por objetivo
+/** Base sets/reps por objetivo e nível. Valores são ajustados depois por
+ * experiência (months_training), idade (age_group) e tipo de exercício
+ * (compound vs isolation). */
 function getSetsReps(goal: string, level: string): { sets: number; reps: string } {
   const isInitiante = level === "iniciante";
+  const g = goal.toLowerCase();
 
-  if (goal.toLowerCase().includes("hipertrofia") || goal.toLowerCase().includes("massa")) {
+  if (g.includes("hipertrofia") || g.includes("massa")) {
     return { sets: isInitiante ? 3 : 4, reps: "8-12" };
   }
-  if (goal.toLowerCase().includes("força")) {
+  if (g.includes("força")) {
     return { sets: isInitiante ? 3 : 5, reps: "4-6" };
   }
-  if (goal.toLowerCase().includes("emagrecimento")) {
+  if (g.includes("emagrecimento")) {
     return { sets: 3, reps: "12-15" };
   }
-  if (goal.toLowerCase().includes("condicionamento")) {
+  if (g.includes("condicionamento")) {
     return { sets: 3, reps: "15-20" };
   }
-  // Default: saúde e bem-estar
   return { sets: 3, reps: "10-12" };
 }
 
-// Quantos exercícios por rotina baseado no tempo disponível
-function getExercisesPerRoutine(timePerSession: number): number {
-  if (timePerSession <= 45) return 5;
-  if (timePerSession <= 60) return 6;
-  if (timePerSession <= 75) return 7;
-  return 8;
+/** Reps ajustadas pelo tipo do exercício: compostos com reps um pouco mais
+ * baixas (carga mais alta), isoladores com reps mais altas. */
+function adjustReps(baseReps: string, isCompound: boolean): string {
+  if (isCompound) {
+    if (baseReps === "8-12") return "6-10";
+    if (baseReps === "10-12") return "8-10";
+    if (baseReps === "12-15") return "10-12";
+    if (baseReps === "15-20") return "12-15";
+    return baseReps;
+  }
+  if (baseReps === "4-6") return "8-10";
+  if (baseReps === "6-10") return "10-12";
+  if (baseReps === "8-12") return "10-15";
+  if (baseReps === "10-12") return "12-15";
+  return baseReps;
 }
 
-// Shuffle array (Fisher-Yates)
+/** Ajuste de sets por experiência e idade. Iniciantes recentes e 40+
+ * reduzem 1 set pra controlar volume e risco de overuse. */
+function adjustSets(
+  base: number,
+  monthsTraining: number | undefined,
+  ageGroup: string | undefined,
+  isCompound: boolean,
+): number {
+  let s = base;
+  if ((monthsTraining ?? 99) < 3) s = Math.max(2, s - 1);
+  if (ageGroup === "over_40") s = Math.max(2, s - 1);
+  // Compostos podem carregar 1 set extra quando avançado e sem restrição — já
+  // embutido no base pra "força"; aqui só garantimos mínimo 2.
+  if (!isCompound && base >= 4) s = Math.min(s, 4);
+  return s;
+}
+
+/** Orçamento de exercícios por rotina baseado em sets/tempo.
+ * Aproximação: cada set com descanso ≈ 2.5 min; 10 min de aquecimento.
+ * exercises ≈ (time - 10) / (sets * 2.5) */
+function getExercisesPerRoutine(timePerSession: number, setsPerEx: number): number {
+  const warmup = 10;
+  const minutesPerSet = 2.4;
+  const raw = Math.floor((timePerSession - warmup) / (setsPerEx * minutesPerSet));
+  return Math.max(4, Math.min(9, raw));
+}
+
+function isCompoundExercise(ex: CatalogExercise): boolean {
+  const name = ex.name || "";
+  if (ISOLATION_NAME_RE.test(name)) return false;
+  if (COMPOUND_NAME_RE.test(name)) return true;
+  return COMPOUND_MUSCLES.has(ex.muscle);
+}
+
+/** Score de efetividade do exercício para o músculo-alvo.
+ * Combina: equipamento (free weights > machines), padrão composto,
+ * correspondência com lista "gold" por músculo, viés por gênero. */
+function scoreExercise(
+  ex: CatalogExercise,
+  muscle: string,
+  profile: UserProfile,
+): number {
+  const name = ex.name || "";
+  const equip = (ex.equipment || "").toLowerCase();
+  let score = EQUIPMENT_SCORE[equip] ?? 0;
+
+  if (COMPOUND_NAME_RE.test(name)) score += 22;
+  else if (ISOLATION_NAME_RE.test(name)) score += 6;
+
+  const patterns = TOP_EXERCISE_PATTERNS[muscle] || [];
+  if (patterns.some((re) => re.test(name))) score += 40;
+
+  // Viés por gênero: ênfase em glúteo/posterior para público feminino.
+  if (profile.gender === "feminino") {
+    if (muscle === "Glúteos" || muscle === "Posterior de Coxa") {
+      if (/hip thrust|romanian|\brdl\b|bridge|kickback|bulgarian/i.test(name)) {
+        score += 15;
+      }
+    }
+  }
+
+  // Iniciante absoluto: prefere máquinas guiadas (menor risco) sobre barra
+  const isRawBeginner =
+    profile.level === "iniciante" && (profile.months_training ?? 0) < 3;
+  if (isRawBeginner && (equip === "leverage machine" || equip === "smith machine")) {
+    score += 10;
+  }
+
+  // 40+: reduz levemente score de exercícios com alto stress articular
+  if (profile.age_group === "over_40") {
+    if (/\bsquat\b|deadlift|clean|snatch|jump/i.test(name)) score -= 8;
+  }
+
+  return score;
+}
+
+/** Distribui `budget` exercícios entre `muscles` respeitando pesos musculares
+ * e adicionando boost para o músculo-foco. Garante mínimo 1 por músculo e
+ * soma exatamente o orçamento. */
+function allocateBudget(
+  muscles: string[],
+  budget: number,
+  focusMuscle: string | undefined,
+): Map<string, number> {
+  const result = new Map<string, number>();
+  if (muscles.length === 0) return result;
+
+  const entries = muscles.map((m) => ({
+    muscle: m,
+    weight: (MUSCLE_WEIGHTS[m] ?? 1) + (m === focusMuscle ? 2 : 0),
+  }));
+
+  // Garante 1 por músculo quando cabe
+  const baseline = Math.min(muscles.length, budget);
+  for (const e of entries) result.set(e.muscle, 0);
+  for (let i = 0; i < baseline; i++) {
+    result.set(entries[i].muscle, 1);
+  }
+  let remaining = budget - baseline;
+
+  // Distribui resto proporcionalmente (ordem decrescente de peso)
+  const sorted = [...entries].sort((a, b) => b.weight - a.weight);
+  while (remaining > 0) {
+    let allocated = false;
+    for (const e of sorted) {
+      if (remaining <= 0) break;
+      // teto: músculos grandes podem receber até 4, pequenos até 2
+      const cap = (MUSCLE_WEIGHTS[e.muscle] ?? 1) >= 2 ? 4 : 2;
+      const cur = result.get(e.muscle) ?? 0;
+      if (cur < cap) {
+        result.set(e.muscle, cur + 1);
+        remaining--;
+        allocated = true;
+      }
+    }
+    if (!allocated) break;
+  }
+
+  return result;
+}
+
+/** Chave de dedup por "padrão de movimento". Dois exercícios com o mesmo
+ * equipamento + músculo alvo são considerados redundantes na mesma sessão. */
+function patternKey(ex: CatalogExercise): string {
+  return `${ex.muscle}|${(ex.equipment || "").toLowerCase()}`;
+}
+
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -278,7 +569,6 @@ export function generateWorkout(
   const days = Math.max(1, Math.min(6, rawDays));
   let split = SPLITS[days];
 
-  // Quartel com 2 dias: AB Full Body (cobre o corpo todo em cada sessão)
   if (locationType === 'quartel' && days === 2) {
     split = {
       type: "AB Full Body",
@@ -288,117 +578,131 @@ export function generateWorkout(
       ],
     };
   }
-  const { sets, reps } = getSetsReps(profile.goal, profile.level);
-  const maxExercises = getExercisesPerRoutine(profile.time_per_session);
 
-  // Filtra catálogo por equipamento quando no quartel, usando inventário
-  // personalizado do usuário (fallback: whitelist padrão se não editou).
+  const { sets: baseSets, reps: baseReps } = getSetsReps(profile.goal, profile.level);
+  const maxExercises = getExercisesPerRoutine(profile.time_per_session, baseSets);
+
+  // Catálogo filtrado por equipamento (só aplica no quartel)
   const quartelTokens = resolveQuartelTokens(profile.quartel_equipment);
   const filteredCatalog = locationType === 'quartel'
     ? catalog.filter((ex) => quartelTokens.has((ex.equipment || '').toLowerCase()))
     : catalog;
 
-  // Indexa catálogo por músculo
+  // Catálogo por músculo, já ordenado por score de efetividade (maior 1º)
   const byMuscle: Record<string, CatalogExercise[]> = {};
   for (const ex of filteredCatalog) {
-    const muscle = ex.muscle;
-    if (!byMuscle[muscle]) byMuscle[muscle] = [];
-    byMuscle[muscle].push(ex);
+    if (!byMuscle[ex.muscle]) byMuscle[ex.muscle] = [];
+    byMuscle[ex.muscle].push(ex);
+  }
+  for (const m of Object.keys(byMuscle)) {
+    byMuscle[m] = byMuscle[m]
+      .map((ex) => ({ ex, s: scoreExercise(ex, m, profile) }))
+      .sort((a, b) => b.s - a.s)
+      .map((x) => x.ex);
   }
 
-  // Músculos a evitar — prioriza tags estruturadas, com fallback para texto livre
+  // Músculos a evitar (tags estruturadas + fallback texto livre)
   const avoidSet = new Set<string>();
-  const tags = profile.medical_restriction_tags || [];
-  for (const tag of tags) {
+  for (const tag of profile.medical_restriction_tags || []) {
     for (const m of RESTRICTION_TO_MUSCLES[tag] || []) avoidSet.add(m);
   }
-  // Fallback: parse texto livre (usuário pode descrever em "outras")
   const freeText = (profile.medical_restrictions || "").toLowerCase();
-  if (freeText.includes("joelho") || freeText.includes("knee")) {
-    RESTRICTION_TO_MUSCLES.joelho.forEach((m) => avoidSet.add(m));
-  }
-  if (freeText.includes("ombro") || freeText.includes("shoulder")) {
-    RESTRICTION_TO_MUSCLES.ombro.forEach((m) => avoidSet.add(m));
-  }
-  if (freeText.includes("cotovelo") || freeText.includes("elbow")) {
-    RESTRICTION_TO_MUSCLES.cotovelo.forEach((m) => avoidSet.add(m));
-  }
-  if (freeText.includes("quadril") || freeText.includes("hip")) {
-    RESTRICTION_TO_MUSCLES.quadril.forEach((m) => avoidSet.add(m));
+  const freeTextMap: [string, RestrictionTag][] = [
+    ["joelho", "joelho"], ["knee", "joelho"],
+    ["ombro", "ombro"], ["shoulder", "ombro"],
+    ["cotovelo", "cotovelo"], ["elbow", "cotovelo"],
+    ["quadril", "quadril"], ["hip", "quadril"],
+    ["lombar", "lombar"], ["cervical", "cervical"],
+    ["punho", "punho"], ["wrist", "punho"],
+    ["tornozelo", "tornozelo"], ["ankle", "tornozelo"],
+  ];
+  for (const [kw, tag] of freeTextMap) {
+    if (freeText.includes(kw)) {
+      for (const m of RESTRICTION_TO_MUSCLES[tag] || []) avoidSet.add(m);
+    }
   }
   const avoidMuscles = Array.from(avoidSet);
 
+  const focusMuscle =
+    profile.focus_muscle && profile.focus_muscle !== "Sem foco específico"
+      ? profile.focus_muscle
+      : undefined;
+
   const routines: GeneratedRoutine[] = split.groups.map((muscleGroups, idx) => {
     const label = ROUTINE_LABELS[idx];
-    const selected: GeneratedExercise[] = [];
-    const usedIds = new Set<string>();
-
-    // Filtra grupos musculares evitando restrições
     const safeMuscles = muscleGroups.filter((m) => !avoidMuscles.includes(m));
 
-    // Distribui exercícios igualmente entre os grupos musculares
-    const exercisesPerMuscle = Math.max(1, Math.floor(maxExercises / safeMuscles.length));
     let remaining = maxExercises;
+    const usedIds = new Set<string>();
+    const usedPatterns = new Set<string>();
+    const selected: GeneratedExercise[] = [];
 
-    // ── Aquecimento (Cárdio) — academia e quartel ────────────────────────
-    const cardioExs = shuffle(
-      filteredCatalog.filter(
-        (ex) => CARDIO_EQUIPMENTS.has((ex.equipment || '').toLowerCase())
-      )
+    // ── 1) Aquecimento cardio (quando disponível) ────────────────────────
+    const cardioPool = filteredCatalog.filter((ex) =>
+      CARDIO_EQUIPMENTS.has((ex.equipment || '').toLowerCase())
     );
-    if (cardioExs.length > 0 && remaining > 0) {
-      const cardio = cardioExs[0];
+    if (cardioPool.length > 0 && remaining > 0) {
+      const cardio = shuffle(cardioPool)[0];
       usedIds.add(cardio.id);
-      selected.push({ exercise_id: cardio.id, sets: 1, reps: "10 min", order: selected.length });
+      selected.push({
+        exercise_id: cardio.id,
+        sets: 1,
+        reps: "5-10 min",
+        order: selected.length,
+      });
       remaining--;
     }
 
-    // ── Núcleo de força no Quartel: garante compostos (barbell + cable) ──
-    if (locationType === 'quartel') {
-      const barbellExs = shuffle(
-        filteredCatalog.filter(
-          (ex) =>
-            (ex.equipment || '').toLowerCase() === 'barbell' &&
-            !usedIds.has(ex.id) &&
-            safeMuscles.includes(ex.muscle)
-        )
-      );
-      const barbellCount = Math.min(2, barbellExs.length, remaining);
-      for (let i = 0; i < barbellCount; i++) {
-        usedIds.add(barbellExs[i].id);
-        selected.push({ exercise_id: barbellExs[i].id, sets, reps, order: selected.length });
-        remaining--;
-      }
+    // ── 2) Orçamento por músculo (distribuição balanceada) ───────────────
+    const allocation = allocateBudget(safeMuscles, remaining, focusMuscle);
 
-      const cableExs = shuffle(
-        filteredCatalog.filter(
-          (ex) =>
-            (ex.equipment || '').toLowerCase() === 'cable' &&
-            !usedIds.has(ex.id)
-        )
-      );
-      const cableCount = Math.min(2, cableExs.length, remaining);
-      for (let i = 0; i < cableCount; i++) {
-        usedIds.add(cableExs[i].id);
-        selected.push({ exercise_id: cableExs[i].id, sets, reps, order: selected.length });
-        remaining--;
-      }
-    }
-    // ──────────────────────────────────────────────────────────────────────
+    // Ordem de processamento: foco primeiro, depois compostos grandes,
+    // depois auxiliares. Garante que compostos grandes entrem antes de
+    // esgotar o orçamento com isoladores.
+    const processingOrder = [...safeMuscles].sort((a, b) => {
+      if (a === focusMuscle) return -1;
+      if (b === focusMuscle) return 1;
+      const wa = MUSCLE_WEIGHTS[a] ?? 1;
+      const wb = MUSCLE_WEIGHTS[b] ?? 1;
+      if (wa !== wb) return wb - wa;
+      const ca = COMPOUND_MUSCLES.has(a) ? 0 : 1;
+      const cb = COMPOUND_MUSCLES.has(b) ? 0 : 1;
+      return ca - cb;
+    });
 
-    for (const muscle of safeMuscles) {
+    for (const muscle of processingOrder) {
       if (remaining <= 0) break;
+      const want = allocation.get(muscle) ?? 0;
+      if (want <= 0) continue;
 
-      const available = shuffle(byMuscle[muscle] || []).filter(
-        (ex) => !usedIds.has(ex.id)
+      const pool = (byMuscle[muscle] || []).filter(
+        (ex) => !usedIds.has(ex.id) && !usedPatterns.has(patternKey(ex))
       );
 
-      const count = Math.min(exercisesPerMuscle, available.length, remaining);
+      // Garante pelo menos 1 composto por músculo quando possível
+      const picked: CatalogExercise[] = [];
+      const compoundFirst = pool.find((ex) => isCompoundExercise(ex));
+      if (compoundFirst && picked.length < want) picked.push(compoundFirst);
+      for (const ex of pool) {
+        if (picked.length >= want) break;
+        if (picked.some((p) => p.id === ex.id)) continue;
+        picked.push(ex);
+      }
 
-      for (let i = 0; i < count; i++) {
-        usedIds.add(available[i].id);
+      for (const ex of picked) {
+        if (remaining <= 0) break;
+        const isCompound = isCompoundExercise(ex);
+        const sets = adjustSets(
+          baseSets,
+          profile.months_training,
+          profile.age_group,
+          isCompound,
+        );
+        const reps = adjustReps(baseReps, isCompound);
+        usedIds.add(ex.id);
+        usedPatterns.add(patternKey(ex));
         selected.push({
-          exercise_id: available[i].id,
+          exercise_id: ex.id,
           sets,
           reps,
           order: selected.length,
@@ -407,52 +711,60 @@ export function generateWorkout(
       }
     }
 
-    // Se sobrar espaço, preenche com exercícios dos grupos com mais opções
+    // ── 3) Preenche sobras (se orçamento sobrou) com próximos melhores ───
     if (remaining > 0) {
-      for (const muscle of safeMuscles) {
-        if (remaining <= 0) break;
-        const available = shuffle(byMuscle[muscle] || []).filter(
-          (ex) => !usedIds.has(ex.id)
-        );
-        for (const ex of available) {
-          if (remaining <= 0) break;
-          usedIds.add(ex.id);
-          selected.push({
-            exercise_id: ex.id,
-            sets,
-            reps,
-            order: selected.length,
-          });
-          remaining--;
+      const leftovers: { ex: CatalogExercise; s: number }[] = [];
+      for (const m of safeMuscles) {
+        for (const ex of byMuscle[m] || []) {
+          if (usedIds.has(ex.id) || usedPatterns.has(patternKey(ex))) continue;
+          leftovers.push({ ex, s: scoreExercise(ex, m, profile) });
         }
+      }
+      leftovers.sort((a, b) => b.s - a.s);
+      for (const { ex } of leftovers) {
+        if (remaining <= 0) break;
+        const isCompound = isCompoundExercise(ex);
+        const sets = adjustSets(
+          baseSets,
+          profile.months_training,
+          profile.age_group,
+          isCompound,
+        );
+        const reps = adjustReps(baseReps, isCompound);
+        usedIds.add(ex.id);
+        usedPatterns.add(patternKey(ex));
+        selected.push({
+          exercise_id: ex.id,
+          sets,
+          reps,
+          order: selected.length,
+        });
+        remaining--;
       }
     }
 
-    // Ordenação final: cardio primeiro → músculo foco → compostos → isoladores → equipamento
-    const focusMuscle = profile.focus_muscle;
-    const hasFocus = focusMuscle && focusMuscle !== "Sem foco específico";
+    // ── 4) Ordenação final: cardio → foco → compostos → auxiliares ───────
     const catMap = new Map(filteredCatalog.map((c) => [c.id, c]));
-
     selected.sort((a, b) => {
       const catA = catMap.get(a.exercise_id);
       const catB = catMap.get(b.exercise_id);
-      const equipA = (catA?.equipment || '').toLowerCase();
-      const equipB = (catB?.equipment || '').toLowerCase();
-      const muscleA = catA?.muscle || '';
-      const muscleB = catB?.muscle || '';
+      if (!catA || !catB) return 0;
+      const equipA = (catA.equipment || '').toLowerCase();
+      const equipB = (catB.equipment || '').toLowerCase();
+      const muscleA = catA.muscle;
+      const muscleB = catB.muscle;
 
-      const scoreA =
+      const rankA =
         (CARDIO_EQUIPMENTS.has(equipA) ? 0 : 1000) +
-        (hasFocus && muscleA === focusMuscle ? 0 : 100) +
-        (COMPOUND_MUSCLES.has(muscleA) ? 0 : 50) +
-        (EQUIPMENT_PRIORITY[equipA] ?? 6);
-      const scoreB =
+        (focusMuscle && muscleA === focusMuscle ? 0 : 100) +
+        (isCompoundExercise(catA) ? 0 : 50) -
+        (EQUIPMENT_SCORE[equipA] ?? 0) * 0.1;
+      const rankB =
         (CARDIO_EQUIPMENTS.has(equipB) ? 0 : 1000) +
-        (hasFocus && muscleB === focusMuscle ? 0 : 100) +
-        (COMPOUND_MUSCLES.has(muscleB) ? 0 : 50) +
-        (EQUIPMENT_PRIORITY[equipB] ?? 6);
-
-      return scoreA - scoreB;
+        (focusMuscle && muscleB === focusMuscle ? 0 : 100) +
+        (isCompoundExercise(catB) ? 0 : 50) -
+        (EQUIPMENT_SCORE[equipB] ?? 0) * 0.1;
+      return rankA - rankB;
     });
     selected.forEach((ex, i) => (ex.order = i));
 
