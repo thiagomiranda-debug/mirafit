@@ -324,7 +324,7 @@ export function translateExerciseName(name: string): string {
   // Ordena as chaves do dicionário por comprimento decrescente para dar prioridade a frases
   const keys = Object.keys(wordMap).sort((a, b) => b.length - a.length);
 
-  let result = name;
+  const result = name;
   const usedRanges: Array<[number, number]> = [];
 
   for (const key of keys) {

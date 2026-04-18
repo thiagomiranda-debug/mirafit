@@ -123,6 +123,14 @@ export default function ProfilePage() {
   }, [user, authLoading, router]);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get("tab");
+    if (tabParam === "taf") {
+      setTab("taf");
+    }
+  }, []);
+
+  useEffect(() => {
     if (user) loadProfile();
   }, [user, loadProfile]);
 

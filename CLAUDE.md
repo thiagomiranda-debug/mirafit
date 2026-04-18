@@ -46,6 +46,7 @@ node scripts/seed-exercises.mjs
 | `workouts/{id}` | Active/past workouts per user; `routines` subcollection |
 | `workouts/{id}/routines/{id}` | Routine with ordered exercises list |
 | `workout_history/{id}` | Logged workout sessions with per-set performance + optional notes |
+| `taf_attempts/{id}` | Tentativas de TAF (imutáveis); `type: full | single`, snapshot de gender/age_group |
 
 ### Key Flows
 
@@ -73,6 +74,13 @@ node scripts/seed-exercises.mjs
 - Exercises can be swapped mid-session via `ExerciseSearchModal` in `mode="swap"` (queries same `target_muscle`; `onSelect` fires immediately and closes modal)
 - The `ExerciseCard` header must be a `<div role="button">` (not `<button>`) because the swap button is nested inside it — HTML forbids nested `<button>` elements
 - On finish: saves `WorkoutLog` with per-set data + optional notes to `workout_history`
+
+**TAF mode** (`/profile` aba TAF + `/taf/tentativa`):
+- Dashboard lê `taf_attempts` + `workout_history` e mostra melhor PR por evento.
+- Scoring: reps por interpolação linear (`calculateTafScore`), corridas por tiers tabelados do edital CBMAL (`scoreRunTime`) em `src/lib/tafData.ts`.
+- `/taf/tentativa` é um wizard (TAF completo) ou seleção de evento único (avulso); ambos gravam em `taf_attempts` via `createTafAttempt`.
+- Histórico: `TafHistoryChart` (sparklines por evento) + `TafAttemptList` (cards cronológicos, últimas 30).
+- Tentativas são imutáveis — para corrigir, registra uma nova.
 
 **Exercise performance format:** `ExercisePerformance.sets: SetPerformance[]`. Old logs may have legacy `weight_lifted`/`reps_done` fields — all read paths handle both formats.
 
@@ -102,6 +110,8 @@ Copy `.env.local.example` to `.env.local`. `NEXT_PUBLIC_*` vars are client-side 
 `firestore.rules` defines the access rules. Deploy manually via Firebase Console → Firestore → Rules. The API route writes workouts/routines via Admin SDK (bypasses client rules); client reads are subject to the rules.
 
 The `workout_history` collection requires a composite index on `(user_id ASC, date DESC)`. If the index is missing, Firestore returns an error with a direct link to create it.
+
+A coleção `taf_attempts` também requer um índice composto em `(user_id ASC, date DESC)`.
 
 ### PWA
 

@@ -2,18 +2,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Usuários: só podem ler/escrever seu próprio perfil
+    // Usuarios: so podem ler/escrever seu proprio perfil
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Exercícios da biblioteca: leitura pública para usuários autenticados
+    // Exercicios da biblioteca: leitura publica para usuarios autenticados
     match /library_exercises/{exerciseId} {
       allow read: if request.auth != null;
       allow write: if false; // Apenas via Admin SDK (seed)
     }
 
-    // Treinos: usuário só acessa seus próprios treinos e rotinas
+    // Treinos: usuario so acessa seus proprios treinos e rotinas
     match /workouts/{workoutId} {
       allow read: if request.auth != null && resource.data.user_id == request.auth.uid;
       allow write: if false; // Apenas via API Route (Admin SDK)
@@ -25,10 +25,17 @@ service cloud.firestore {
       }
     }
 
-    // Histórico de treinos: usuário só acessa seu próprio histórico
+    // Historico de treinos: usuario so acessa seu proprio historico
     match /workout_history/{logId} {
       allow read, write: if request.auth != null && resource.data.user_id == request.auth.uid;
       allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
+    }
+
+    // Tentativas de TAF: imutaveis apos criacao, so o dono acessa
+    match /taf_attempts/{attemptId} {
+      allow read, delete: if request.auth != null && resource.data.user_id == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
+      allow update: if false;
     }
   }
 }
