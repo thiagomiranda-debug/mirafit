@@ -8,9 +8,10 @@ import { getExercisesByIds } from "@/lib/workouts";
 import { WorkoutLog } from "@/types";
 import { translateExerciseName } from "@/lib/exerciseNames";
 import ExerciseChart, { ChartDataPoint } from "@/components/ExerciseChart";
+import MuscleAnalytics from "@/components/MuscleAnalytics";
 import BottomNav from "@/components/BottomNav";
 
-type Tab = "treinos" | "evolucao";
+type Tab = "treinos" | "evolucao" | "analise";
 
 function getTotalVolume(log: WorkoutLog): number {
   return log.performance.reduce((acc, p) => {
@@ -131,7 +132,7 @@ export default function HistoryPage() {
 
       {/* Tabs */}
       <div className="mt-3 flex gap-2 px-5">
-        {(["treinos", "evolucao"] as Tab[]).map((t) => (
+        {(["treinos", "evolucao", "analise"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -141,7 +142,7 @@ export default function HistoryPage() {
                 : "bg-[var(--surface)] text-[var(--text-dim)] border border-[var(--border)] hover:text-[var(--foreground)]"
             }`}
           >
-            {t === "treinos" ? "Treinos" : "Evolução"}
+            {t === "treinos" ? "Treinos" : t === "evolucao" ? "Evolução" : "Análise"}
           </button>
         ))}
       </div>
@@ -171,6 +172,10 @@ export default function HistoryPage() {
               </div>
             )}
           </>
+        )}
+
+        {tab === "analise" && user && (
+          <MuscleAnalytics userId={user.uid} embedded />
         )}
 
         {tab === "evolucao" && (

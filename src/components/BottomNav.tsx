@@ -18,19 +18,6 @@ const NAV_ITEMS = [
     ),
   },
   {
-    href: "/analytics",
-    label: "Análise",
-    icon: (active: boolean) => (
-      <svg className="h-6 w-6" fill={active ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={active ? 0 : 1.8}>
-        {active ? (
-          <path d="M3 20v-5h3v5H3zm5.5 0V10h3v10h-3zm5.5 0V6h3v14h-3z" />
-        ) : (
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 20v-5h3v5H3zm5.5 0V10h3v10h-3zm5.5 0V6h3v14h-3z" />
-        )}
-      </svg>
-    ),
-  },
-  {
     href: "/history",
     label: "Histórico",
     icon: (active: boolean) => (

@@ -41,7 +41,13 @@ type Metric = "1rm" | "volume";
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function MuscleAnalytics({ userId }: { userId: string }) {
+export default function MuscleAnalytics({
+  userId,
+  embedded = false,
+}: {
+  userId: string;
+  embedded?: boolean;
+}) {
   const [allLogs, setAllLogs] = useState<WorkoutLog[]>([]);
   const [exerciseMap, setExerciseMap] = useState<Record<string, LibraryExercise>>({});
   const [loading, setLoading] = useState(true);
@@ -227,22 +233,25 @@ export default function MuscleAnalytics({ userId }: { userId: string }) {
     );
   }
 
+  const Wrapper = embedded ? "div" : "main";
+
   return (
     <>
-      {/* Header */}
-      <header className="px-5 pb-1 pt-6">
-        <h1
-          className="text-3xl text-[var(--foreground)]"
-          style={{ fontFamily: "var(--font-bebas)" }}
-        >
-          ANÁLISE MUSCULAR
-        </h1>
-        <p className="text-xs text-[var(--text-dim)]">
-          Distribuição de volume por grupo
-        </p>
-      </header>
+      {!embedded && (
+        <header className="px-5 pb-1 pt-6">
+          <h1
+            className="text-3xl text-[var(--foreground)]"
+            style={{ fontFamily: "var(--font-bebas)" }}
+          >
+            ANÁLISE MUSCULAR
+          </h1>
+          <p className="text-xs text-[var(--text-dim)]">
+            Distribuição de volume por grupo
+          </p>
+        </header>
+      )}
 
-      <main className="flex flex-1 flex-col gap-4 px-4 py-4">
+      <Wrapper className={embedded ? "flex flex-col gap-4" : "flex flex-1 flex-col gap-4 px-4 py-4"}>
         {/* Toggle de período */}
         <div className="flex gap-2">
           {([7, 30, 90] as Period[]).map((p) => (
@@ -298,7 +307,7 @@ export default function MuscleAnalytics({ userId }: { userId: string }) {
             </div>
           </div>
         )}
-      </main>
+      </Wrapper>
 
       {/* Drill-down bottom-sheet */}
       {selectedMuscle && drillData && (
