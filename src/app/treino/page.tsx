@@ -617,10 +617,11 @@ function ExerciseCard({
                     {/* Done toggle */}
                     <button
                       onClick={() => onSetDone(si)}
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-all ${
+                      aria-label={s.done ? "Desmarcar série" : "Marcar série como concluída"}
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 transition-all active:scale-95 ${
                         s.done
-                          ? "border-[var(--success)] bg-[var(--success)] text-white shadow-[0_0_10px_rgba(34,197,94,0.2)]"
-                          : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-dim)] hover:border-[var(--red-500)] hover:text-[var(--red-500)]"
+                          ? "border-[var(--success)] bg-[var(--success)] text-white shadow-[0_0_10px_rgba(34,197,94,0.3)]"
+                          : "border-[var(--red-500)]/60 bg-[var(--red-500)]/10 text-[var(--red-500)] hover:border-[var(--red-500)] hover:bg-[var(--red-500)]/20"
                       }`}
                     >
                       <svg
