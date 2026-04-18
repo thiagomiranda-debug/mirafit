@@ -559,15 +559,15 @@ function ExerciseCard({
 
           <div className="space-y-2">
             {/* Column headers */}
-            <div className="flex items-center gap-2 px-1">
-              <span className="w-8 shrink-0" />
-              <span className="flex-1 text-center text-[10px] font-bold uppercase tracking-wider text-[var(--text-dim)]">
+            <div className="grid items-center gap-2 px-1" style={{ gridTemplateColumns: "2rem 1fr 1fr 2.5rem" }}>
+              <span />
+              <span className="text-center text-[10px] font-bold uppercase tracking-wider text-[var(--text-dim)]">
                 Carga (kg)
               </span>
-              <span className="flex-1 text-center text-[10px] font-bold uppercase tracking-wider text-[var(--text-dim)]">
+              <span className="text-center text-[10px] font-bold uppercase tracking-wider text-[var(--text-dim)]">
                 Reps
               </span>
-              <span className="w-10 shrink-0" />
+              <span />
             </div>
 
             {setInputs.map((s, si) => {
@@ -580,10 +580,10 @@ function ExerciseCard({
 
               return (
                 <div key={si}>
-                  <div className="flex items-center gap-2">
+                  <div className="grid items-center gap-2" style={{ gridTemplateColumns: "2rem 1fr 1fr 2.5rem" }}>
                     {/* Set badge */}
                     <span
-                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-bold transition-all ${
+                      className={`flex h-8 w-8 items-center justify-center rounded-xl text-xs font-bold transition-all ${
                         s.done
                           ? "bg-[var(--success)] text-white"
                           : "bg-[var(--surface-2)] text-[var(--text-dim)]"
@@ -600,7 +600,7 @@ function ExerciseCard({
                       value={s.weight}
                       onChange={(e) => onSetUpdate(si, "weight", e.target.value)}
                       disabled={s.done}
-                      className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-2 py-2.5 text-center text-sm font-bold text-[var(--foreground)] placeholder-[var(--text-dim)] focus:border-[var(--red-500)] focus:outline-none focus:ring-1 focus:ring-[var(--red-500)] disabled:opacity-50"
+                      className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-2 py-2.5 text-center text-sm font-bold text-[var(--foreground)] placeholder-[var(--text-dim)] focus:border-[var(--red-500)] focus:outline-none focus:ring-1 focus:ring-[var(--red-500)] disabled:opacity-50"
                     />
 
                     {/* Reps */}
@@ -611,17 +611,17 @@ function ExerciseCard({
                       value={s.reps}
                       onChange={(e) => onSetUpdate(si, "reps", e.target.value)}
                       disabled={s.done}
-                      className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-2 py-2.5 text-center text-sm font-bold text-[var(--foreground)] placeholder-[var(--text-dim)] focus:border-[var(--red-500)] focus:outline-none focus:ring-1 focus:ring-[var(--red-500)] disabled:opacity-50"
+                      className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-2 py-2.5 text-center text-sm font-bold text-[var(--foreground)] placeholder-[var(--text-dim)] focus:border-[var(--red-500)] focus:outline-none focus:ring-1 focus:ring-[var(--red-500)] disabled:opacity-50"
                     />
 
                     {/* Done toggle */}
                     <button
                       onClick={() => onSetDone(si)}
                       aria-label={s.done ? "Desmarcar série" : "Marcar série como concluída"}
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 transition-all active:scale-95 ${
+                      className={`flex h-10 w-10 items-center justify-center rounded-xl border-2 transition-all active:scale-95 ${
                         s.done
                           ? "border-[var(--success)] bg-[var(--success)] text-white shadow-[0_0_10px_rgba(34,197,94,0.3)]"
-                          : "border-[var(--red-500)]/60 bg-[var(--red-500)]/10 text-[var(--red-500)] hover:border-[var(--red-500)] hover:bg-[var(--red-500)]/20"
+                          : "border-[var(--red-500)]/60 bg-[var(--red-500)]/10 text-[var(--red-500)]"
                       }`}
                     >
                       <svg
