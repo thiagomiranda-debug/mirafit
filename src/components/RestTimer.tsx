@@ -1,0 +1,123 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+
+interface RestTimerProps {
+  exerciseName: string;
+  initialSeconds?: number;
+  onClose: () => void;
+}
+
+export default function RestTimer({
+  exerciseName,
+  initialSeconds = 90,
+  onClose,
+}: RestTimerProps) {
+  const [remaining, setRemaining] = useState(initialSeconds);
+  const [total, setTotal] = useState(initialSeconds);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  function startCountdown(seconds: number) {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    setRemaining(seconds);
+    setTotal(seconds);
+    intervalRef.current = setInterval(() => {
+      setRemaining((r) => {
+        if (r <= 1) {
+          clearInterval(intervalRef.current!);
+          if ("vibrate" in navigator) navigator.vibrate([200, 100, 200]);
+          onClose();
+          return 0;
+        }
+        return r - 1;
+      });
+    }, 1000);
+  }
+
+  useEffect(() => {
+    startCountdown(initialSeconds);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const radius = 40;
+  const circumference = 2 * Math.PI * radius;
+  const progress = remaining / total;
+  const dash = circumference * progress;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Sheet */}
+      <div className="animate-slide-up relative w-full max-w-md rounded-t-3xl bg-[var(--surface)] px-6 pb-8 pt-5 shadow-2xl">
+        {/* Handle */}
+        <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-[var(--border-light)]" />
+
+        <p className="mb-0.5 text-center text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--text-dim)]">
+          Descanso
+        </p>
+        <p className="mb-6 truncate text-center text-sm font-semibold text-[var(--text-muted)]">
+          {exerciseName}
+        </p>
+
+        {/* Circular countdown */}
+        <div className="relative mx-auto mb-7 flex h-32 w-32 items-center justify-center">
+          <svg className="absolute inset-0" viewBox="0 0 100 100">
+            {/* Track */}
+            <circle
+              cx="50" cy="50" r={radius}
+              fill="none"
+              stroke="var(--surface-3)"
+              strokeWidth="5"
+            />
+            {/* Progress */}
+            <circle
+              cx="50" cy="50" r={radius}
+              fill="none"
+              stroke="var(--red-500)"
+              strokeWidth="5"
+              strokeLinecap="round"
+              strokeDasharray={`${dash} ${circumference}`}
+              transform="rotate(-90 50 50)"
+              style={{ transition: "stroke-dasharray 1s linear" }}
+            />
+          </svg>
+          <span
+            className="text-5xl leading-none text-[var(--foreground)]"
+            style={{ fontFamily: "var(--font-bebas)" }}
+          >
+            {remaining}
+          </span>
+        </div>
+
+        {/* Preset buttons */}
+        <div className="mb-4 flex gap-2">
+          {[60, 90, 120].map((s) => (
+            <button
+              key={s}
+              onClick={() => startCountdown(s)}
+              className={`flex-1 rounded-xl border py-2.5 text-sm font-bold transition-all ${
+                total === s && remaining <= s
+                  ? "border-[var(--red-500)] bg-[var(--red-600)]/15 text-[var(--red-500)]"
+                  : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] hover:border-[var(--border-light)]"
+              }`}
+            >
+              {s}s
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={onClose}
+          className="w-full rounded-xl border border-[var(--border)] py-3.5 text-sm font-semibold text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
+        >
+          Pular descanso
+        </button>
+      </div>
+    </div>
+  );
+}

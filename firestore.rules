@@ -1,0 +1,34 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Usuários: só podem ler/escrever seu próprio perfil
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Exercícios da biblioteca: leitura pública para usuários autenticados
+    match /library_exercises/{exerciseId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Apenas via Admin SDK (seed)
+    }
+
+    // Treinos: usuário só acessa seus próprios treinos e rotinas
+    match /workouts/{workoutId} {
+      allow read: if request.auth != null && resource.data.user_id == request.auth.uid;
+      allow write: if false; // Apenas via API Route (Admin SDK)
+
+      match /routines/{routineId} {
+        allow read: if request.auth != null
+          && get(/databases/$(database)/documents/workouts/$(workoutId)).data.user_id == request.auth.uid;
+        allow write: if false; // Apenas via API Route (Admin SDK)
+      }
+    }
+
+    // Histórico de treinos: usuário só acessa seu próprio histórico
+    match /workout_history/{logId} {
+      allow read, write: if request.auth != null && resource.data.user_id == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
+    }
+  }
+}
