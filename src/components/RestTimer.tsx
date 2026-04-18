@@ -2,16 +2,30 @@
 
 import { useEffect, useRef, useState } from "react";
 
+export interface NextPreview {
+  /** "Próxima série" quando faltam séries do mesmo exercício, ou "Próximo exercício" */
+  label: string;
+  name: string;
+  gifUrl?: string;
+  sets?: number;
+  reps?: string;
+  targetMuscle?: string;
+  /** Resumo da última performance (ex: "101 × 10 kg") */
+  lastPerformance?: string;
+}
+
 interface RestTimerProps {
   exerciseName: string;
   initialSeconds?: number;
   onClose: () => void;
+  nextPreview?: NextPreview | null;
 }
 
 export default function RestTimer({
   exerciseName,
   initialSeconds = 90,
   onClose,
+  nextPreview,
 }: RestTimerProps) {
   const [remaining, setRemaining] = useState(initialSeconds);
   const [total, setTotal] = useState(initialSeconds);
@@ -110,6 +124,47 @@ export default function RestTimer({
             </button>
           ))}
         </div>
+
+        {/* Preview do próximo exercício / próxima série */}
+        {nextPreview && (
+          <div className="animate-fade-in mb-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
+            <p className="mb-1.5 text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--amber-500)]">
+              {nextPreview.label}
+            </p>
+            <div className="flex items-center gap-3">
+              {nextPreview.gifUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={nextPreview.gifUrl}
+                  alt={nextPreview.name}
+                  className="h-14 w-14 shrink-0 rounded-xl border border-[var(--border)] bg-black object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-3)]">
+                  <svg className="h-6 w-6 text-[var(--text-dim)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                  </svg>
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-bold capitalize text-[var(--foreground)]">
+                  {nextPreview.name}
+                </p>
+                <p className="mt-0.5 text-[11px] text-[var(--text-dim)]">
+                  {nextPreview.sets && nextPreview.reps
+                    ? `${nextPreview.sets} × ${nextPreview.reps} reps`
+                    : nextPreview.targetMuscle ?? ""}
+                </p>
+                {nextPreview.lastPerformance && (
+                  <p className="mt-0.5 text-[10px] font-semibold text-[var(--amber-500)]">
+                    Última: {nextPreview.lastPerformance}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <button
           onClick={onClose}

@@ -11,6 +11,8 @@ import {
 } from "@/lib/workoutGenerator";
 import BottomNav from "@/components/BottomNav";
 import ProgressChart from "@/components/ProgressChart";
+import WorkoutHeatmap from "@/components/WorkoutHeatmap";
+import WeekComparison from "@/components/WeekComparison";
 import TafDashboard from "@/components/TafDashboard";
 import { TafGender, TafAgeGroup } from "@/lib/tafData";
 
@@ -249,6 +251,12 @@ export default function ProfilePage() {
       <main className="flex flex-1 flex-col gap-5 px-4 py-5">
         {tab === "perfil" ? (
           <>
+            {/* Comparação semanal */}
+            <WeekComparison userId={user!.uid} />
+
+            {/* Heatmap de atividade */}
+            <WorkoutHeatmap userId={user!.uid} />
+
             {/* Análise de Força */}
             <Section title="Análise de Força">
               <ProgressChart userId={user!.uid} />

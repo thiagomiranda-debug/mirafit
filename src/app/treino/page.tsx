@@ -11,7 +11,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase";
 import { generatePortugueseInstructions } from "@/lib/exerciseInstructions";
 import { translateExerciseName } from "@/lib/exerciseNames";
-import RestTimer from "@/components/RestTimer";
+import RestTimer, { NextPreview } from "@/components/RestTimer";
 import ExerciseSearchModal from "@/components/ExerciseSearchModal";
 import { epley1RM } from "@/lib/metrics";
 
@@ -66,7 +66,10 @@ function TreinoContent() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const [restTimer, setRestTimer] = useState<{ exerciseName: string } | null>(null);
+  const [restTimer, setRestTimer] = useState<{
+    exerciseName: string;
+    nextPreview: NextPreview | null;
+  } | null>(null);
   const [swapModal, setSwapModal] = useState<{ exIdx: number; exerciseId: string; muscle: string } | null>(null);
   const [notes, setNotes] = useState("");
   const [locationType, setLocationType] = useState<LocationType>("gym");
@@ -166,7 +169,53 @@ function TreinoContent() {
       const exId = inputs[exIdx].exercise_id;
       const lib = exercises[exId];
       const name = lib ? translateExerciseName(lib.name) : exId.replace(/-/g, " ");
-      setRestTimer({ exerciseName: name });
+
+      // Compute remaining undone sets for the current exercise AFTER this toggle
+      const currentSets = inputs[exIdx].sets;
+      const remainingAfter = currentSets.filter(
+        (s, i) => (i === setIdx ? false : !s.done)
+      ).length;
+
+      let nextPreview: NextPreview | null = null;
+      const sortedEx = routine
+        ? [...routine.exercises].sort((a, b) => a.order - b.order)
+        : [];
+
+      if (remainingAfter > 0) {
+        // Same exercise, next set
+        const lastSummary = summarizeSets(lastPerf[exId] || []);
+        const currentDef = sortedEx[exIdx];
+        nextPreview = {
+          label: "Próxima série",
+          name,
+          gifUrl: lib?.gif_url,
+          sets: currentDef?.sets,
+          reps: currentDef?.reps,
+          targetMuscle: lib?.target_muscle,
+          lastPerformance: lastSummary || undefined,
+        };
+      } else {
+        // Look for next exercise
+        const nextDef = sortedEx[exIdx + 1];
+        if (nextDef) {
+          const nextLib = exercises[nextDef.exercise_id];
+          const nextName = nextLib
+            ? translateExerciseName(nextLib.name)
+            : nextDef.exercise_id.replace(/-/g, " ");
+          const lastSummary = summarizeSets(lastPerf[nextDef.exercise_id] || []);
+          nextPreview = {
+            label: "Próximo exercício",
+            name: nextName,
+            gifUrl: nextLib?.gif_url,
+            sets: nextDef.sets,
+            reps: nextDef.reps,
+            targetMuscle: nextLib?.target_muscle,
+            lastPerformance: lastSummary || undefined,
+          };
+        }
+      }
+
+      setRestTimer({ exerciseName: name, nextPreview });
     }
   }
 
@@ -427,6 +476,7 @@ function TreinoContent() {
       {restTimer && (
         <RestTimer
           exerciseName={restTimer.exerciseName}
+          nextPreview={restTimer.nextPreview}
           onClose={() => setRestTimer(null)}
         />
       )}
