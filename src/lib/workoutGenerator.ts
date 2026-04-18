@@ -6,7 +6,7 @@
  * e define sets/reps com base no objetivo do usuário.
  */
 
-import { UserProfile, LocationType } from "@/types";
+import { UserProfile, LocationType, RestrictionTag } from "@/types";
 
 export interface CatalogExercise {
   id: string;
@@ -15,21 +15,93 @@ export interface CatalogExercise {
   equipment?: string;
 }
 
-/** Equipamentos disponíveis no quartel */
-export const QUARTEL_EQUIPMENT_WHITELIST = [
-  'barbell',
-  'dumbbell',
-  'kettlebell',
-  'cable',
-  'body weight',
-  'body_weight',
-  'weighted_body_weight',
+/**
+ * Categorias de equipamento visíveis ao usuário no inventário do quartel.
+ * Cada `key` é a chave persistida em UserProfile.quartel_equipment,
+ * e `tokens` são os valores reais do campo `equipment` no catálogo Firestore.
+ */
+export const QUARTEL_EQUIPMENT_CATEGORIES: {
+  key: string;
+  label: string;
+  tokens: string[];
+}[] = [
+  { key: 'barbell', label: 'Barra', tokens: ['barbell'] },
+  { key: 'dumbbell', label: 'Halter', tokens: ['dumbbell'] },
+  { key: 'kettlebell', label: 'Kettlebell', tokens: ['kettlebell'] },
+  { key: 'cable', label: 'Cabo / Polia', tokens: ['cable'] },
+  {
+    key: 'body_weight',
+    label: 'Peso corporal',
+    tokens: ['body weight', 'body_weight', 'weighted_body_weight'],
+  },
+  {
+    key: 'leverage_machine',
+    label: 'Máquina articulada',
+    tokens: ['leverage machine', 'leverage_machine'],
+  },
+  { key: 'stationary_bike', label: 'Bike ergométrica', tokens: ['stationary bike'] },
+  { key: 'elliptical', label: 'Elíptico', tokens: ['elliptical machine'] },
+  { key: 'cardio', label: 'Cardio (genérico)', tokens: ['cardio'] },
+];
+
+/** Todas as chaves de categoria (default quando usuário não editou o inventário) */
+export const QUARTEL_DEFAULT_EQUIPMENT_KEYS = QUARTEL_EQUIPMENT_CATEGORIES.map((c) => c.key);
+
+/** Whitelist de tokens (retro-compat): todos os tokens das categorias */
+export const QUARTEL_EQUIPMENT_WHITELIST = QUARTEL_EQUIPMENT_CATEGORIES.flatMap((c) => c.tokens);
+
+function resolveQuartelTokens(keys?: string[]): Set<string> {
+  const source = keys && keys.length > 0 ? keys : QUARTEL_DEFAULT_EQUIPMENT_KEYS;
+  const tokens = new Set<string>();
+  for (const key of source) {
+    const cat = QUARTEL_EQUIPMENT_CATEGORIES.find((c) => c.key === key);
+    if (cat) cat.tokens.forEach((t) => tokens.add(t));
+  }
+  return tokens;
+}
+
+/** Músculos que tipicamente são trabalhados com exercícios compostos (multi-articulares) */
+const COMPOUND_MUSCLES = new Set<string>([
+  "Peitorais",
+  "Dorsal",
+  "Costas Superior",
+  "Quadríceps",
+  "Posterior de Coxa",
+  "Deltoides",
+  "Glúteos",
+  "Trapézio",
+]);
+
+/** Prioridade de equipamento dentro da mesma categoria (menor = primeiro) */
+const EQUIPMENT_PRIORITY: Record<string, number> = {
+  "barbell": 0,
+  "dumbbell": 1,
+  "body weight": 2,
+  "body_weight": 2,
+  "weighted_body_weight": 2,
+  "kettlebell": 3,
+  "leverage machine": 4,
+  "leverage_machine": 4,
+  "cable": 5,
+};
+
+const CARDIO_EQUIPMENTS = new Set<string>([
+  'cardio',
   'stationary bike',
   'elliptical machine',
-  'cardio',
-  'leverage machine',
-  'leverage_machine',
-];
+]);
+
+/** Mapeia tags estruturadas de restrição para músculos a evitar no split */
+const RESTRICTION_TO_MUSCLES: Record<RestrictionTag, string[]> = {
+  joelho: ["Quadríceps", "Panturrilhas"],
+  ombro: ["Deltoides"],
+  lombar: [],
+  cervical: ["Trapézio"],
+  punho: [],
+  cotovelo: ["Bíceps", "Tríceps"],
+  tornozelo: ["Panturrilhas"],
+  quadril: ["Glúteos", "Posterior de Coxa"],
+};
 
 interface GeneratedExercise {
   exercise_id: string;
@@ -189,9 +261,11 @@ export function generateWorkout(
   const { sets, reps } = getSetsReps(profile.goal, profile.level);
   const maxExercises = getExercisesPerRoutine(profile.time_per_session);
 
-  // Filtra catálogo por equipamento quando no quartel
+  // Filtra catálogo por equipamento quando no quartel, usando inventário
+  // personalizado do usuário (fallback: whitelist padrão se não editou).
+  const quartelTokens = resolveQuartelTokens(profile.quartel_equipment);
   const filteredCatalog = locationType === 'quartel'
-    ? catalog.filter(ex => QUARTEL_EQUIPMENT_WHITELIST.includes((ex.equipment || '').toLowerCase()))
+    ? catalog.filter((ex) => quartelTokens.has((ex.equipment || '').toLowerCase()))
     : catalog;
 
   // Indexa catálogo por músculo
@@ -202,21 +276,27 @@ export function generateWorkout(
     byMuscle[muscle].push(ex);
   }
 
-  // Músculos a evitar baseado nas restrições médicas
-  const restrictions = (profile.medical_restrictions || "").toLowerCase();
-  const avoidMuscles: string[] = [];
-  if (restrictions.includes("joelho") || restrictions.includes("knee")) {
-    avoidMuscles.push("Quadríceps", "Panturrilhas");
+  // Músculos a evitar — prioriza tags estruturadas, com fallback para texto livre
+  const avoidSet = new Set<string>();
+  const tags = profile.medical_restriction_tags || [];
+  for (const tag of tags) {
+    for (const m of RESTRICTION_TO_MUSCLES[tag] || []) avoidSet.add(m);
   }
-  if (restrictions.includes("ombro") || restrictions.includes("shoulder")) {
-    avoidMuscles.push("Deltoides");
+  // Fallback: parse texto livre (usuário pode descrever em "outras")
+  const freeText = (profile.medical_restrictions || "").toLowerCase();
+  if (freeText.includes("joelho") || freeText.includes("knee")) {
+    RESTRICTION_TO_MUSCLES.joelho.forEach((m) => avoidSet.add(m));
   }
-  if (restrictions.includes("coluna") || restrictions.includes("costas") || restrictions.includes("hérnia") || restrictions.includes("hernia")) {
-    avoidMuscles.push("Coluna");
+  if (freeText.includes("ombro") || freeText.includes("shoulder")) {
+    RESTRICTION_TO_MUSCLES.ombro.forEach((m) => avoidSet.add(m));
   }
-  if (restrictions.includes("punho") || restrictions.includes("wrist")) {
-    avoidMuscles.push("Antebraços");
+  if (freeText.includes("cotovelo") || freeText.includes("elbow")) {
+    RESTRICTION_TO_MUSCLES.cotovelo.forEach((m) => avoidSet.add(m));
   }
+  if (freeText.includes("quadril") || freeText.includes("hip")) {
+    RESTRICTION_TO_MUSCLES.quadril.forEach((m) => avoidSet.add(m));
+  }
+  const avoidMuscles = Array.from(avoidSet);
 
   const routines: GeneratedRoutine[] = split.groups.map((muscleGroups, idx) => {
     const label = ROUTINE_LABELS[idx];
@@ -230,22 +310,21 @@ export function generateWorkout(
     const exercisesPerMuscle = Math.max(1, Math.floor(maxExercises / safeMuscles.length));
     let remaining = maxExercises;
 
-    // ── Prioridade de equipamentos para o Quartel ──────────────────────────
-    if (locationType === 'quartel') {
-      // 1. Aquecimento/Cárdio obrigatório (Esteira / Bike)
-      const cardioExs = shuffle(
-        filteredCatalog.filter(
-          (ex) => ['cardio', 'stationary bike', 'elliptical machine'].includes((ex.equipment || '').toLowerCase())
-        )
-      );
-      if (cardioExs.length > 0 && remaining > 0) {
-        const cardio = cardioExs[0];
-        usedIds.add(cardio.id);
-        selected.push({ exercise_id: cardio.id, sets: 1, reps: "10 min", order: selected.length });
-        remaining--;
-      }
+    // ── Aquecimento (Cárdio) — academia e quartel ────────────────────────
+    const cardioExs = shuffle(
+      filteredCatalog.filter(
+        (ex) => CARDIO_EQUIPMENTS.has((ex.equipment || '').toLowerCase())
+      )
+    );
+    if (cardioExs.length > 0 && remaining > 0) {
+      const cardio = cardioExs[0];
+      usedIds.add(cardio.id);
+      selected.push({ exercise_id: cardio.id, sets: 1, reps: "10 min", order: selected.length });
+      remaining--;
+    }
 
-      // 2. Núcleo de força: 1-2 exercícios compostos com barbell (relevantes aos músculos do dia)
+    // ── Núcleo de força no Quartel: garante compostos (barbell + cable) ──
+    if (locationType === 'quartel') {
       const barbellExs = shuffle(
         filteredCatalog.filter(
           (ex) =>
@@ -261,7 +340,6 @@ export function generateWorkout(
         remaining--;
       }
 
-      // 3. Acessórios: 1-2 exercícios de cabo (cable)
       const cableExs = shuffle(
         filteredCatalog.filter(
           (ex) =>
@@ -320,33 +398,33 @@ export function generateWorkout(
       }
     }
 
-    // Prioriza foco muscular do usuário: coloca exercícios do foco primeiro
+    // Ordenação final: cardio primeiro → músculo foco → compostos → isoladores → equipamento
     const focusMuscle = profile.focus_muscle;
-    if (focusMuscle && focusMuscle !== "Sem foco específico") {
-      selected.sort((a, b) => {
-        const aFocus = filteredCatalog.find((c) => c.id === a.exercise_id)?.muscle === focusMuscle;
-        const bFocus = filteredCatalog.find((c) => c.id === b.exercise_id)?.muscle === focusMuscle;
-        if (aFocus && !bFocus) return -1;
-        if (!aFocus && bFocus) return 1;
-        return 0;
-      });
-      // Re-numera order
-      selected.forEach((ex, i) => (ex.order = i));
-    }
+    const hasFocus = focusMuscle && focusMuscle !== "Sem foco específico";
+    const catMap = new Map(filteredCatalog.map((c) => [c.id, c]));
 
-    // Para o quartel, garante que o exercício de cárdio permaneça na posição 0
-    if (locationType === 'quartel' && selected.length > 0) {
-      const cardioEquipments = ['cardio', 'stationary bike', 'elliptical machine'];
-      const cardioIdx = selected.findIndex((ex) => {
-        const cat = filteredCatalog.find((c) => c.id === ex.exercise_id);
-        return cat && cardioEquipments.includes((cat.equipment || '').toLowerCase());
-      });
-      if (cardioIdx > 0) {
-        const [cardio] = selected.splice(cardioIdx, 1);
-        selected.unshift(cardio);
-        selected.forEach((ex, i) => (ex.order = i));
-      }
-    }
+    selected.sort((a, b) => {
+      const catA = catMap.get(a.exercise_id);
+      const catB = catMap.get(b.exercise_id);
+      const equipA = (catA?.equipment || '').toLowerCase();
+      const equipB = (catB?.equipment || '').toLowerCase();
+      const muscleA = catA?.muscle || '';
+      const muscleB = catB?.muscle || '';
+
+      const scoreA =
+        (CARDIO_EQUIPMENTS.has(equipA) ? 0 : 1000) +
+        (hasFocus && muscleA === focusMuscle ? 0 : 100) +
+        (COMPOUND_MUSCLES.has(muscleA) ? 0 : 50) +
+        (EQUIPMENT_PRIORITY[equipA] ?? 6);
+      const scoreB =
+        (CARDIO_EQUIPMENTS.has(equipB) ? 0 : 1000) +
+        (hasFocus && muscleB === focusMuscle ? 0 : 100) +
+        (COMPOUND_MUSCLES.has(muscleB) ? 0 : 50) +
+        (EQUIPMENT_PRIORITY[equipB] ?? 6);
+
+      return scoreA - scoreB;
+    });
+    selected.forEach((ex, i) => (ex.order = i));
 
     return {
       name: getRoutineName(label, safeMuscles),

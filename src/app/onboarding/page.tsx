@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { saveUserProfile } from "@/lib/userProfile";
-import { UserProfile } from "@/types";
+import { UserProfile, RestrictionTag } from "@/types";
 
 const STEPS = ["Pessoal", "Treino", "Objetivo"];
 
@@ -28,16 +28,30 @@ const MUSCLES = [
   "Glúteos",
 ];
 
+const RESTRICTION_OPTIONS: { tag: RestrictionTag; label: string }[] = [
+  { tag: "joelho", label: "Joelho" },
+  { tag: "ombro", label: "Ombro" },
+  { tag: "lombar", label: "Lombar" },
+  { tag: "cervical", label: "Cervical" },
+  { tag: "punho", label: "Punho" },
+  { tag: "cotovelo", label: "Cotovelo" },
+  { tag: "tornozelo", label: "Tornozelo" },
+  { tag: "quadril", label: "Quadril" },
+];
+
 type FormData = {
   name: string;
   age: string;
   weight: string;
   height: string;
+  gender: UserProfile["gender"] | "";
   level: UserProfile["level"] | "";
+  months_training: string;
   days_per_week: string;
   time_per_session: string;
   goal: string;
   focus_muscle: string;
+  medical_restriction_tags: RestrictionTag[];
   medical_restrictions: string;
 };
 
@@ -46,11 +60,14 @@ const initial: FormData = {
   age: "",
   weight: "",
   height: "",
+  gender: "",
   level: "",
+  months_training: "",
   days_per_week: "",
   time_per_session: "",
   goal: "",
   focus_muscle: "",
+  medical_restriction_tags: [],
   medical_restrictions: "",
 };
 
@@ -62,8 +79,21 @@ export default function OnboardingPage() {
   const { user } = useAuth();
   const router = useRouter();
 
-  function set(field: keyof FormData, value: string) {
+  function set<K extends keyof FormData>(field: K, value: FormData[K]) {
     setForm((prev) => ({ ...prev, [field]: value }));
+    setError("");
+  }
+
+  function toggleRestriction(tag: RestrictionTag) {
+    setForm((prev) => {
+      const has = prev.medical_restriction_tags.includes(tag);
+      return {
+        ...prev,
+        medical_restriction_tags: has
+          ? prev.medical_restriction_tags.filter((t) => t !== tag)
+          : [...prev.medical_restriction_tags, tag],
+      };
+    });
     setError("");
   }
 
@@ -71,9 +101,11 @@ export default function OnboardingPage() {
     if (step === 0) {
       if (!form.name.trim()) { setError("Informe seu nome."); return false; }
       if (!form.age || +form.age < 10 || +form.age > 100) { setError("Informe uma idade válida."); return false; }
+      if (!form.gender) { setError("Selecione seu gênero."); return false; }
       if (!form.weight || +form.weight < 30) { setError("Informe seu peso em kg."); return false; }
       if (!form.height || +form.height < 100) { setError("Informe sua altura em cm."); return false; }
       if (!form.level) { setError("Selecione seu nível."); return false; }
+      if (form.months_training === "" || +form.months_training < 0) { setError("Informe há quantos meses você treina (0 se nunca treinou)."); return false; }
     }
     if (step === 1) {
       if (!form.days_per_week || +form.days_per_week < 1 || +form.days_per_week > 7) { setError("Informe quantos dias por semana (1-7)."); return false; }
@@ -101,12 +133,15 @@ export default function OnboardingPage() {
         age: +form.age,
         weight: +form.weight,
         height: +form.height,
+        gender: form.gender as UserProfile["gender"],
         level: form.level as UserProfile["level"],
+        months_training: +form.months_training,
         days_per_week: +form.days_per_week,
         time_per_session: +form.time_per_session,
         goal: form.goal,
         focus_muscle: form.focus_muscle,
         medical_restrictions: form.medical_restrictions.trim(),
+        medical_restriction_tags: form.medical_restriction_tags,
         gym_id: "",
       };
       await saveUserProfile(user.uid, profile);
@@ -190,6 +225,21 @@ export default function OnboardingPage() {
                 </Field>
               </div>
 
+              <Field label="Gênero">
+                <div className="grid grid-cols-2 gap-2">
+                  {(["masculino", "feminino"] as const).map((g) => (
+                    <button key={g} type="button" onClick={() => set("gender", g)}
+                      className={`rounded-xl border py-2.5 text-sm font-semibold capitalize transition-all ${
+                        form.gender === g
+                          ? "border-[var(--red-500)] bg-[var(--red-600)]/15 text-[var(--red-500)]"
+                          : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] hover:border-[var(--border-light)]"
+                      }`}>
+                      {g === "masculino" ? "Masculino" : "Feminino"}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+
               <Field label="Nível de experiência">
                 <div className="grid grid-cols-3 gap-2">
                   {(["iniciante", "intermediario", "avancado"] as const).map((lvl) => (
@@ -203,6 +253,12 @@ export default function OnboardingPage() {
                     </button>
                   ))}
                 </div>
+              </Field>
+
+              <Field label="Há quantos meses treina continuamente?">
+                <input type="number" value={form.months_training}
+                  onChange={(e) => set("months_training", e.target.value)}
+                  placeholder="Ex: 6 (0 se nunca treinou)" min={0} max={600} className={inputCls} />
               </Field>
             </div>
           )}
@@ -274,10 +330,28 @@ export default function OnboardingPage() {
                 </select>
               </Field>
 
-              <Field label="Restrições médicas (opcional)">
+              <Field label="Restrições / lesões (marque se tiver)">
+                <div className="grid grid-cols-2 gap-2">
+                  {RESTRICTION_OPTIONS.map(({ tag, label }) => {
+                    const active = form.medical_restriction_tags.includes(tag);
+                    return (
+                      <button key={tag} type="button" onClick={() => toggleRestriction(tag)}
+                        className={`rounded-xl border py-2.5 text-sm font-semibold transition-all ${
+                          active
+                            ? "border-[var(--red-500)] bg-[var(--red-600)]/15 text-[var(--red-500)]"
+                            : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] hover:border-[var(--border-light)]"
+                        }`}>
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </Field>
+
+              <Field label="Outras observações (opcional)">
                 <textarea value={form.medical_restrictions} onChange={(e) => set("medical_restrictions", e.target.value)}
-                  placeholder="Ex: lesão no joelho, hérnia de disco..."
-                  rows={3} className={`${inputCls} resize-none`} />
+                  placeholder="Ex: hérnia de disco, tendinite, cirurgia recente..."
+                  rows={2} className={`${inputCls} resize-none`} />
               </Field>
             </div>
           )}

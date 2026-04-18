@@ -4,7 +4,11 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { getUserProfile, updateUserProfile } from "@/lib/userProfile";
-import { UserProfile } from "@/types";
+import { UserProfile, RestrictionTag } from "@/types";
+import {
+  QUARTEL_EQUIPMENT_CATEGORIES,
+  QUARTEL_DEFAULT_EQUIPMENT_KEYS,
+} from "@/lib/workoutGenerator";
 import BottomNav from "@/components/BottomNav";
 import ProgressChart from "@/components/ProgressChart";
 import TafDashboard from "@/components/TafDashboard";
@@ -30,17 +34,31 @@ const MUSCLES = [
   "Glúteos",
 ];
 
+const RESTRICTION_OPTIONS: { tag: RestrictionTag; label: string }[] = [
+  { tag: "joelho", label: "Joelho" },
+  { tag: "ombro", label: "Ombro" },
+  { tag: "lombar", label: "Lombar" },
+  { tag: "cervical", label: "Cervical" },
+  { tag: "punho", label: "Punho" },
+  { tag: "cotovelo", label: "Cotovelo" },
+  { tag: "tornozelo", label: "Tornozelo" },
+  { tag: "quadril", label: "Quadril" },
+];
+
 type FormData = {
   name: string;
   age: string;
   weight: string;
   height: string;
   level: UserProfile["level"] | "";
+  months_training: string;
   days_per_week: string;
   time_per_session: string;
   goal: string;
   focus_muscle: string;
   medical_restrictions: string;
+  medical_restriction_tags: RestrictionTag[];
+  quartel_equipment: string[];
   gender: TafGender | "";
   age_group: TafAgeGroup | "";
 };
@@ -59,11 +77,14 @@ export default function ProfilePage() {
     weight: "",
     height: "",
     level: "",
+    months_training: "",
     days_per_week: "",
     time_per_session: "",
     goal: "",
     focus_muscle: "",
     medical_restrictions: "",
+    medical_restriction_tags: [],
+    quartel_equipment: QUARTEL_DEFAULT_EQUIPMENT_KEYS,
     gender: "",
     age_group: "",
   });
@@ -81,11 +102,14 @@ export default function ProfilePage() {
       weight: String(profile.weight),
       height: String(profile.height),
       level: profile.level,
+      months_training: profile.months_training !== undefined ? String(profile.months_training) : "",
       days_per_week: String(profile.days_per_week),
       time_per_session: String(profile.time_per_session),
       goal: profile.goal,
       focus_muscle: profile.focus_muscle,
       medical_restrictions: profile.medical_restrictions || "",
+      medical_restriction_tags: profile.medical_restriction_tags || [],
+      quartel_equipment: profile.quartel_equipment ?? QUARTEL_DEFAULT_EQUIPMENT_KEYS,
       gender: profile.gender ?? "",
       age_group: profile.age_group ?? "",
     });
@@ -100,8 +124,36 @@ export default function ProfilePage() {
     if (user) loadProfile();
   }, [user, loadProfile]);
 
-  function set(field: keyof FormData, value: string) {
+  function set<K extends keyof FormData>(field: K, value: FormData[K]) {
     setForm((prev) => ({ ...prev, [field]: value }));
+    setError("");
+    setSaved(false);
+  }
+
+  function toggleRestriction(tag: RestrictionTag) {
+    setForm((prev) => {
+      const has = prev.medical_restriction_tags.includes(tag);
+      return {
+        ...prev,
+        medical_restriction_tags: has
+          ? prev.medical_restriction_tags.filter((t) => t !== tag)
+          : [...prev.medical_restriction_tags, tag],
+      };
+    });
+    setError("");
+    setSaved(false);
+  }
+
+  function toggleEquipment(key: string) {
+    setForm((prev) => {
+      const has = prev.quartel_equipment.includes(key);
+      return {
+        ...prev,
+        quartel_equipment: has
+          ? prev.quartel_equipment.filter((k) => k !== key)
+          : [...prev.quartel_equipment, key],
+      };
+    });
     setError("");
     setSaved(false);
   }
@@ -135,6 +187,9 @@ export default function ProfilePage() {
         goal: form.goal,
         focus_muscle: form.focus_muscle,
         medical_restrictions: form.medical_restrictions.trim(),
+        medical_restriction_tags: form.medical_restriction_tags,
+        quartel_equipment: form.quartel_equipment,
+        ...(form.months_training !== "" ? { months_training: +form.months_training } : {}),
         ...(form.gender ? { gender: form.gender } : {}),
         ...(form.age_group ? { age_group: form.age_group } : {}),
       });
@@ -308,6 +363,19 @@ export default function ProfilePage() {
                   ))}
                 </div>
               </Field>
+
+              <Field label="Meses treinando continuamente">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={form.months_training}
+                  onChange={(e) => set("months_training", e.target.value)}
+                  placeholder="Ex: 6"
+                  min={0}
+                  max={600}
+                  className={inputCls}
+                />
+              </Field>
             </Section>
 
             {/* Disponibilidade */}
@@ -385,15 +453,79 @@ export default function ProfilePage() {
                 </select>
               </Field>
 
-              <Field label="Restrições médicas (opcional)">
+              <Field label="Restrições / lesões">
+                <div className="mt-1.5 grid grid-cols-2 gap-2">
+                  {RESTRICTION_OPTIONS.map(({ tag, label }) => {
+                    const active = form.medical_restriction_tags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => toggleRestriction(tag)}
+                        className={`rounded-xl border py-2.5 text-sm font-semibold transition-all ${
+                          active
+                            ? "border-[var(--red-500)] bg-[var(--red-600)]/15 text-[var(--red-500)]"
+                            : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] hover:border-[var(--border-light)]"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </Field>
+
+              <Field label="Outras observações (opcional)">
                 <textarea
                   value={form.medical_restrictions}
                   onChange={(e) => set("medical_restrictions", e.target.value)}
-                  placeholder="Ex: lesão no joelho, hérnia de disco..."
-                  rows={3}
+                  placeholder="Ex: hérnia de disco, tendinite, cirurgia recente..."
+                  rows={2}
                   className={`${inputCls} resize-none`}
                 />
               </Field>
+            </Section>
+
+            {/* Equipamentos do Quartel */}
+            <Section title="Equipamentos do Quartel">
+              <p className="-mt-2 mb-3 text-xs text-[var(--text-dim)]">
+                Marque apenas o que existe no seu quartel. Usado quando gera treinos no modo 🚒 Quartel.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {QUARTEL_EQUIPMENT_CATEGORIES.map(({ key, label }) => {
+                  const active = form.quartel_equipment.includes(key);
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => toggleEquipment(key)}
+                      className={`rounded-xl border py-2.5 text-sm font-semibold transition-all ${
+                        active
+                          ? "border-[var(--red-500)] bg-[var(--red-600)]/15 text-[var(--red-500)]"
+                          : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] hover:border-[var(--border-light)]"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => set("quartel_equipment", QUARTEL_DEFAULT_EQUIPMENT_KEYS)}
+                  className="flex-1 rounded-xl border border-[var(--border)] py-2 text-xs font-semibold text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
+                >
+                  Marcar todos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => set("quartel_equipment", [])}
+                  className="flex-1 rounded-xl border border-[var(--border)] py-2 text-xs font-semibold text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
+                >
+                  Limpar
+                </button>
+              </div>
             </Section>
 
             {error && (

@@ -1,19 +1,34 @@
 // Firestore document types
 
+export type RestrictionTag =
+  | 'joelho'
+  | 'ombro'
+  | 'lombar'
+  | 'cervical'
+  | 'punho'
+  | 'cotovelo'
+  | 'tornozelo'
+  | 'quadril';
+
 export interface UserProfile {
   name: string;
   age: number;
   weight: number;
   height: number;
+  gender: 'masculino' | 'feminino';
   level: "iniciante" | "intermediario" | "avancado";
+  months_training?: number;
   days_per_week: number;
   time_per_session: number;
   goal: string;
   focus_muscle: string;
   medical_restrictions: string;
+  medical_restriction_tags?: RestrictionTag[];
   gym_id: string;
-  gender?: 'masculino' | 'feminino';
   age_group?: 'under_30' | '31_40' | 'over_40';
+  /** Chaves de categorias de equipamento disponíveis no quartel do usuário.
+   * Se undefined, o gerador usa a whitelist padrão (QUARTEL_EQUIPMENT_WHITELIST). */
+  quartel_equipment?: string[];
 }
 
 export interface LibraryExercise {
