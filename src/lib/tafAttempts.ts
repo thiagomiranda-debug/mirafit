@@ -45,7 +45,24 @@ export async function createTafAttempt(
   input: CreateTafAttemptInput
 ): Promise<string> {
   const db = getFirebaseDb();
-  const total_score = input.results.reduce((sum, result) => sum + result.score, 0);
+  const sanitizedResults = input.results.map((result) => {
+    const payload: TafEventResult = {
+      event: result.event,
+      value: result.value,
+      score: result.score,
+    };
+
+    if (result.skipped) {
+      payload.skipped = true;
+    }
+
+    return payload;
+  });
+
+  const total_score = sanitizedResults.reduce(
+    (sum, result) => sum + result.score,
+    0
+  );
 
   const payload: Record<string, unknown> = {
     user_id: input.user_id,
@@ -53,7 +70,7 @@ export async function createTafAttempt(
     type: input.type,
     gender: input.gender,
     age_group: input.age_group,
-    results: input.results,
+    results: sanitizedResults,
     total_score,
   };
 

@@ -159,7 +159,7 @@ function TentativaInner() {
             event: eventKey,
             value: data.value,
             score,
-            skipped: data.skipped || undefined,
+            ...(data.skipped ? { skipped: true } : {}),
           };
         }
       );
