@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getFirestore } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
 import { generateWorkout, CARDIO_EQUIPMENTS, PreviousCycleContext, CatalogExercise } from "@/lib/workoutGenerator";
-import { UserProfile, LocationType } from "@/types";
+import { UserProfile, LocationType, CyclePhase } from "@/types";
 import { initAdmin } from "@/lib/firebaseAdmin";
 
 export async function POST(req: NextRequest) {
@@ -66,26 +66,26 @@ export async function POST(req: NextRequest) {
       const prevDoc = sorted[0];
       const prevData = prevDoc.data();
       const prevVariantId = prevData.split_variant_id as string | undefined;
-      const prevPhase = prevData.cycle_phase as ('acumulacao' | 'intensificacao' | undefined);
-
-      const routinesSnap = await prevDoc.ref.collection("routines").get();
-      const catalogMap = new Map<string, CatalogExercise>(catalog.map((c) => [c.id, c]));
-
-      const history: Record<string, string[]> = {};
-      for (const routineDoc of routinesSnap.docs) {
-        const exercises = (routineDoc.data().exercises || []) as Array<{ exercise_id: string }>;
-        for (const ex of exercises) {
-          const catEx = catalogMap.get(ex.exercise_id);
-          if (!catEx) continue;
-          const equipLower = (catEx.equipment || "").toLowerCase();
-          if (!equipLower || CARDIO_EQUIPMENTS.has(equipLower)) continue;
-          const muscle = catEx.muscle;
-          if (!history[muscle]) history[muscle] = [];
-          if (!history[muscle].includes(equipLower)) history[muscle].push(equipLower);
-        }
-      }
+      const prevPhase = prevData.cycle_phase as (CyclePhase | undefined);
 
       if (prevVariantId) {
+        const routinesSnap = await prevDoc.ref.collection("routines").get();
+        const catalogMap = new Map<string, CatalogExercise>(catalog.map((c) => [c.id, c]));
+
+        const history: Record<string, string[]> = {};
+        for (const routineDoc of routinesSnap.docs) {
+          const exercises = (routineDoc.data().exercises || []) as Array<{ exercise_id: string }>;
+          for (const ex of exercises) {
+            const catEx = catalogMap.get(ex.exercise_id);
+            if (!catEx) continue;
+            const equipLower = (catEx.equipment || "").toLowerCase();
+            if (!equipLower || CARDIO_EQUIPMENTS.has(equipLower)) continue;
+            const muscle = catEx.muscle;
+            if (!history[muscle]) history[muscle] = [];
+            if (!history[muscle].includes(equipLower)) history[muscle].push(equipLower);
+          }
+        }
+
         previousCycle = {
           splitVariantId: prevVariantId,
           cyclePhase: prevPhase ?? 'acumulacao',
