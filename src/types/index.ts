@@ -10,6 +10,8 @@ export type RestrictionTag =
   | 'tornozelo'
   | 'quadril';
 
+export type CyclePhase = 'acumulacao' | 'intensificacao';
+
 export interface UserProfile {
   name: string;
   age: number;
@@ -67,7 +69,7 @@ export interface Workout {
   /** ID da variante curada usada nesta geração (ex: "abcd_sinergista"). Undefined em workouts pré-periodização. */
   split_variant_id?: string;
   /** Fase do mesociclo — alterna a cada geração para alternar volume/intensidade. */
-  cycle_phase?: 'acumulacao' | 'intensificacao';
+  cycle_phase?: CyclePhase;
 }
 
 export interface SetPerformance {

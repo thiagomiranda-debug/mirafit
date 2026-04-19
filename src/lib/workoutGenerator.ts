@@ -6,13 +6,36 @@
  * e define sets/reps com base no objetivo do usuário.
  */
 
-import { UserProfile, LocationType, RestrictionTag } from "@/types";
+import { UserProfile, LocationType, RestrictionTag, CyclePhase } from "@/types";
 
 export interface CatalogExercise {
   id: string;
   name: string;
   muscle: string;
   equipment?: string;
+}
+
+export interface SplitVariant {
+  /** ID estável da variante — gravado em Workout.split_variant_id */
+  id: string;
+  /** Label exibido ao usuário (ex: "ABCD", "Push/Pull/Legs x2"). Variantes do mesmo número de dias podem compartilhar o mesmo label. */
+  type: string;
+  /** Matriz dias × grupos musculares */
+  groups: string[][];
+}
+
+export interface PreviousCycleContext {
+  splitVariantId: string;
+  cyclePhase: CyclePhase;
+  /** Map músculo → lista de equipamentos (tokens lowercase) usados no ciclo anterior. Cardio é filtrado. */
+  muscleEquipmentHistory: Record<string, string[]>;
+}
+
+export interface GenerateWorkoutResult {
+  workout_type: string;
+  split_variant_id: string;
+  cycle_phase: CyclePhase;
+  routines: GeneratedRoutine[];
 }
 
 /**
