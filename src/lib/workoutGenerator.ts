@@ -341,10 +341,6 @@ interface GeneratedRoutine {
   exercises: GeneratedExercise[];
 }
 
-interface GeneratedWorkout {
-  workout_type: string;
-  routines: GeneratedRoutine[];
-}
 
 /**
  * Pool de variantes curadas por número de dias. O seletor escolhe via
@@ -524,6 +520,35 @@ const QUARTEL_2DAY_VARIANT: SplitVariant = {
     ["Peitorais", "Dorsal", "Posterior de Coxa", "Deltoides", "Bíceps", "Glúteos"],
   ],
 };
+
+/**
+ * Seleciona a próxima variante de split para um dado número de dias.
+ * Round-robin determinístico: sempre avança para a próxima da lista.
+ * Se não houver histórico, retorna a primeira (comportamento pré-periodização).
+ */
+function selectNextVariant(
+  days: number,
+  locationType: LocationType,
+  previousVariantId?: string,
+): SplitVariant {
+  const variants = (locationType === 'quartel' && days === 2)
+    ? [QUARTEL_2DAY_VARIANT]
+    : (SPLIT_VARIANTS[days] ?? SPLIT_VARIANTS[3]);
+
+  if (!previousVariantId || variants.length === 1) return variants[0];
+  const idx = variants.findIndex((v) => v.id === previousVariantId);
+  if (idx === -1) return variants[0];
+  return variants[(idx + 1) % variants.length];
+}
+
+/**
+ * Alterna a fase do mesociclo.
+ * Primeira geração (sem histórico) começa em acumulacao.
+ */
+function nextCyclePhase(previous?: CyclePhase): CyclePhase {
+  if (!previous) return 'acumulacao';
+  return previous === 'acumulacao' ? 'intensificacao' : 'acumulacao';
+}
 
 // Nomes das rotinas por letra
 const ROUTINE_LABELS = ["A", "B", "C", "D", "E", "F"];
@@ -738,15 +763,13 @@ export function generateWorkout(
   profile: UserProfile,
   catalog: CatalogExercise[],
   locationType: LocationType = 'gym',
-  daysAvailable?: number
-): GeneratedWorkout {
+  daysAvailable?: number,
+  previousCycle?: PreviousCycleContext,
+): GenerateWorkoutResult {
   const rawDays = daysAvailable ?? profile.days_per_week;
   const days = Math.max(1, Math.min(6, rawDays));
-  let variants = SPLIT_VARIANTS[days];
-  if (locationType === 'quartel' && days === 2) {
-    variants = [QUARTEL_2DAY_VARIANT];
-  }
-  const split = variants[0];  // real selector comes in Task 4
+  const split = selectNextVariant(days, locationType, previousCycle?.splitVariantId);
+  const cyclePhase = nextCyclePhase(previousCycle?.cyclePhase);
 
   const { sets: baseSets, reps: baseReps } = getSetsReps(profile.goal, profile.level);
   const maxExercises = getExercisesPerRoutine(profile.time_per_session, baseSets);
@@ -945,6 +968,8 @@ export function generateWorkout(
 
   return {
     workout_type: split.type,
+    split_variant_id: split.id,
+    cycle_phase: cyclePhase,
     routines,
   };
 }
