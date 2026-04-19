@@ -469,10 +469,30 @@ export default function ProfilePage() {
             {/* Equipamentos do Quartel */}
             <Section title="Equipamentos do Quartel">
               <p className="-mt-2 mb-3 text-xs text-[var(--text-dim)]">
-                Marque apenas o que existe no seu quartel. Usado quando gera treinos no modo 🚒 Quartel.
+                Usado quando gera treinos no modo 🚒 Quartel.
+              </p>
+
+              {/* Fixos — sempre disponíveis, não podem ser desmarcados */}
+              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--amber-500)]">
+                Equipamentos Fixos
+              </p>
+              <div className="mb-4 grid grid-cols-2 gap-2">
+                {QUARTEL_EQUIPMENT_CATEGORIES.filter((c) => c.mandatory).map(({ key, label }) => (
+                  <div
+                    key={key}
+                    className="cursor-default rounded-xl border border-[var(--amber-500)] bg-[var(--amber-500)]/15 py-2.5 text-center text-sm font-semibold text-[var(--amber-500)]"
+                  >
+                    {label}
+                  </div>
+                ))}
+              </div>
+
+              {/* Opcionais — selecionáveis */}
+              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--text-dim)]">
+                Equipamentos Opcionais
               </p>
               <div className="grid grid-cols-2 gap-2">
-                {QUARTEL_EQUIPMENT_CATEGORIES.map(({ key, label }) => {
+                {QUARTEL_EQUIPMENT_CATEGORIES.filter((c) => !c.mandatory).map(({ key, label }) => {
                   const active = form.quartel_equipment.includes(key);
                   return (
                     <button
@@ -493,7 +513,12 @@ export default function ProfilePage() {
               <div className="mt-3 flex gap-2">
                 <button
                   type="button"
-                  onClick={() => set("quartel_equipment", QUARTEL_DEFAULT_EQUIPMENT_KEYS)}
+                  onClick={() =>
+                    set(
+                      "quartel_equipment",
+                      QUARTEL_EQUIPMENT_CATEGORIES.filter((c) => !c.mandatory).map((c) => c.key),
+                    )
+                  }
                   className="flex-1 rounded-xl border border-[var(--border)] py-2 text-xs font-semibold text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
                 >
                   Marcar todos
