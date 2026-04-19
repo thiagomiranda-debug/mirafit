@@ -77,10 +77,15 @@ export const QUARTEL_DEFAULT_EQUIPMENT_KEYS = [
 export const QUARTEL_EQUIPMENT_WHITELIST = QUARTEL_EQUIPMENT_CATEGORIES.flatMap((c) => c.tokens);
 
 function resolveQuartelTokens(keys?: string[]): Set<string> {
-  const source = keys && keys.length > 0 ? keys : QUARTEL_DEFAULT_EQUIPMENT_KEYS;
   const tokens = new Set<string>();
-  for (const key of source) {
-    const cat = QUARTEL_EQUIPMENT_CATEGORIES.find((c) => c.key === key);
+  // 1. Sempre inclui tokens dos equipamentos obrigatórios
+  for (const cat of QUARTEL_EQUIPMENT_CATEGORIES) {
+    if (cat.mandatory) cat.tokens.forEach((t) => tokens.add(t));
+  }
+  // 2. Adiciona tokens dos opcionais selecionados pelo usuário
+  const optionalKeys = keys && keys.length > 0 ? keys : QUARTEL_DEFAULT_EQUIPMENT_KEYS;
+  for (const key of optionalKeys) {
+    const cat = QUARTEL_EQUIPMENT_CATEGORIES.find((c) => c.key === key && !c.mandatory);
     if (cat) cat.tokens.forEach((t) => tokens.add(t));
   }
   return tokens;
