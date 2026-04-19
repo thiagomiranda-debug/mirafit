@@ -642,7 +642,6 @@ function shiftRepsDown(reps: string): string {
 function shiftRepsDownSlight(reps: string): string {
   const map: Record<string, string> = {
     '8-12': '8-10',
-    '10-12': '10-12',
     '12-15': '10-12',
     '15-20': '12-15',
   };
