@@ -24,41 +24,42 @@ export const QUARTEL_EQUIPMENT_CATEGORIES: {
   key: string;
   label: string;
   tokens: string[];
+  mandatory?: boolean;
 }[] = [
-  { key: 'barbell', label: 'Barra', tokens: ['barbell'] },
-  { key: 'olympic_barbell', label: 'Barra olímpica', tokens: ['olympic barbell'] },
-  { key: 'ez_barbell', label: 'Barra EZ / W', tokens: ['ez barbell'] },
-  { key: 'trap_bar', label: 'Trap bar', tokens: ['trap bar'] },
-  { key: 'dumbbell', label: 'Halter', tokens: ['dumbbell'] },
-  { key: 'kettlebell', label: 'Kettlebell', tokens: ['kettlebell'] },
-  { key: 'cable', label: 'Cabo / Polia', tokens: ['cable'] },
-  {
-    key: 'body_weight',
-    label: 'Peso corporal',
-    tokens: ['body weight', 'body_weight', 'weighted_body_weight', 'weighted'],
-  },
-  { key: 'assisted', label: 'Barra fixa / assistida', tokens: ['assisted'] },
-  {
-    key: 'leverage_machine',
-    label: 'Máquina articulada',
-    tokens: ['leverage machine', 'leverage_machine'],
-  },
-  { key: 'smith_machine', label: 'Smith machine', tokens: ['smith machine'] },
-  { key: 'sled_machine', label: 'Leg press / Sled', tokens: ['sled machine'] },
-  { key: 'band', label: 'Banda / elástico', tokens: ['band', 'resistance band'] },
-  { key: 'medicine_ball', label: 'Medicine ball', tokens: ['medicine ball'] },
-  { key: 'stability_ball', label: 'Bola suíça', tokens: ['stability ball'] },
-  { key: 'bosu_ball', label: 'Bosu', tokens: ['bosu ball'] },
-  { key: 'rope', label: 'Corda naval', tokens: ['rope'] },
-  { key: 'roller', label: 'Roller / Rolo', tokens: ['roller', 'wheel roller'] },
-  { key: 'tire', label: 'Pneu', tokens: ['tire'] },
-  { key: 'hammer', label: 'Marreta', tokens: ['hammer'] },
-  { key: 'stationary_bike', label: 'Bike ergométrica', tokens: ['stationary bike'] },
-  { key: 'elliptical', label: 'Elíptico', tokens: ['elliptical machine'] },
-  { key: 'stepmill', label: 'Escada / Stepmill', tokens: ['stepmill machine'] },
-  { key: 'skierg', label: 'SkiErg', tokens: ['skierg machine'] },
-  { key: 'ergometer', label: 'Ergômetro superior', tokens: ['upper body ergometer'] },
-  { key: 'cardio', label: 'Cardio (genérico)', tokens: ['cardio'] },
+  // ── Obrigatórios (sempre presentes no quartel) ───────────────────
+  { key: 'crossover_cable',  label: 'Cross Over e Polia',   tokens: ['cable'],                                      mandatory: true },
+  { key: 'adjustable_bench', label: 'Banco Articulado',      tokens: ['leverage machine', 'leverage_machine'],        mandatory: true },
+  { key: 'treadmill',        label: 'Esteira Ergométrica',   tokens: ['cardio'],                                     mandatory: true },
+  { key: 'stationary_bike',  label: 'Bicicleta Ergométrica', tokens: ['stationary bike'],                            mandatory: true },
+  { key: 'power_rack',       label: 'Power Rack',            tokens: ['barbell', 'olympic barbell'],                 mandatory: true },
+  { key: 'weight_plates',    label: 'Anilhas',               tokens: ['barbell', 'olympic barbell'],                 mandatory: true },
+  { key: 'barbell_bars',     label: 'Barras',                tokens: ['barbell', 'olympic barbell', 'ez barbell'],   mandatory: true },
+  { key: 'dumbbell',         label: 'Halteres',              tokens: ['dumbbell'],                                   mandatory: true },
+  // ── Opcionais (selecionáveis pelo usuário) ───────────────────────
+  { key: 'barbell',          label: 'Barra',               tokens: ['barbell'] },
+  { key: 'olympic_barbell',  label: 'Barra olímpica',      tokens: ['olympic barbell'] },
+  { key: 'ez_barbell',       label: 'Barra EZ / W',        tokens: ['ez barbell'] },
+  { key: 'trap_bar',         label: 'Trap bar',            tokens: ['trap bar'] },
+  { key: 'kettlebell',       label: 'Kettlebell',          tokens: ['kettlebell'] },
+  { key: 'cable',            label: 'Cabo / Polia',        tokens: ['cable'] },
+  { key: 'body_weight',      label: 'Peso corporal',       tokens: ['body weight', 'body_weight', 'weighted_body_weight', 'weighted'] },
+  { key: 'assisted',         label: 'Barra fixa / assistida', tokens: ['assisted'] },
+  { key: 'leverage_machine', label: 'Máquina articulada',  tokens: ['leverage machine', 'leverage_machine'] },
+  { key: 'smith_machine',    label: 'Smith machine',       tokens: ['smith machine'] },
+  { key: 'sled_machine',     label: 'Leg press / Sled',    tokens: ['sled machine'] },
+  { key: 'band',             label: 'Banda / elástico',    tokens: ['band', 'resistance band'] },
+  { key: 'medicine_ball',    label: 'Medicine ball',       tokens: ['medicine ball'] },
+  { key: 'stability_ball',   label: 'Bola suíça',          tokens: ['stability ball'] },
+  { key: 'bosu_ball',        label: 'Bosu',                tokens: ['bosu ball'] },
+  { key: 'rope',             label: 'Corda naval',         tokens: ['rope'] },
+  { key: 'roller',           label: 'Roller / Rolo',       tokens: ['roller', 'wheel roller'] },
+  { key: 'tire',             label: 'Pneu',                tokens: ['tire'] },
+  { key: 'hammer',           label: 'Marreta',             tokens: ['hammer'] },
+  { key: 'elliptical',       label: 'Elíptico',            tokens: ['elliptical machine'] },
+  { key: 'stepmill',         label: 'Escada / Stepmill',   tokens: ['stepmill machine'] },
+  { key: 'skierg',           label: 'SkiErg',              tokens: ['skierg machine'] },
+  { key: 'ergometer',        label: 'Ergômetro superior',  tokens: ['upper body ergometer'] },
+  { key: 'cardio',           label: 'Cardio (genérico)',   tokens: ['cardio'] },
 ];
 
 /**
@@ -66,15 +67,10 @@ export const QUARTEL_EQUIPMENT_CATEGORIES: {
  * com o comportamento anterior à adição de categorias avançadas).
  */
 export const QUARTEL_DEFAULT_EQUIPMENT_KEYS = [
-  'barbell',
-  'dumbbell',
   'kettlebell',
-  'cable',
   'body_weight',
   'leverage_machine',
-  'stationary_bike',
   'elliptical',
-  'cardio',
 ];
 
 /** Whitelist de tokens (retro-compat): todos os tokens das categorias */
