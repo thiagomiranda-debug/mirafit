@@ -423,6 +423,53 @@ export default function Home() {
           generating={generating}
         />
       )}
+
+      {showOnboardingModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 px-4 pb-6 pt-20">
+          <div className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 animate-slide-up">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--red-600)]/15">
+              <svg
+                className="h-7 w-7 text-[var(--red-500)]"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.8}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
+              </svg>
+            </div>
+            <h2
+              className="mb-2 text-center text-3xl text-[var(--foreground)]"
+              style={{ fontFamily: "var(--font-bebas)" }}
+            >
+              CONFIGURE SEU PERFIL
+            </h2>
+            <p className="mb-6 text-center text-sm text-[var(--text-muted)]">
+              Para gerar treinos precisos, precisamos conhecer seu nível, objetivos e
+              disponibilidade.
+            </p>
+            <button
+              onClick={() => router.push("/onboarding")}
+              className="mb-3 w-full rounded-xl py-3 text-sm font-bold text-white gradient-red transition-all hover:shadow-md hover:shadow-[var(--red-600)]/20"
+            >
+              Preencher Agora
+            </button>
+            <button
+              onClick={() => {
+                sessionStorage.setItem("mirafit_onboarding_dismissed", "1");
+                setShowOnboardingModal(false);
+              }}
+              className="w-full py-2 text-sm font-medium text-[var(--text-dim)] transition-colors hover:text-[var(--text-muted)]"
+            >
+              Agora Não
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
