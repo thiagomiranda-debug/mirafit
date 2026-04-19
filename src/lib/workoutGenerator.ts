@@ -123,6 +123,24 @@ const MUSCLE_WEIGHTS: Record<string, number> = {
   "Antebraços": 1,
 };
 
+/** Boost adicional de peso muscular por gênero, somado ao MUSCLE_WEIGHTS base.
+ * Mulheres recebem mais volume em inferiores/glúteos; homens em superiores. */
+const GENDER_MUSCLE_BOOSTS: Record<string, Record<string, number>> = {
+  feminino: {
+    "Glúteos": 3,
+    "Posterior de Coxa": 2,
+    "Quadríceps": 1,
+    "Adutores": 1,
+  },
+  masculino: {
+    "Peitorais": 2,
+    "Dorsal": 2,
+    "Deltoides": 1,
+    "Bíceps": 1,
+    "Tríceps": 1,
+  },
+};
+
 /** Score base por equipamento (maior = mais preferido) — reflete hierarquia
  * clássica: pesos livres > máquinas articuladas > máquinas de isolamento. */
 const EQUIPMENT_SCORE: Record<string, number> = {
@@ -501,13 +519,15 @@ function allocateBudget(
   muscles: string[],
   budget: number,
   focusMuscle: string | undefined,
+  gender?: string,
 ): Map<string, number> {
   const result = new Map<string, number>();
   if (muscles.length === 0) return result;
 
+  const genderBoosts = gender ? (GENDER_MUSCLE_BOOSTS[gender] ?? {}) : {};
   const entries = muscles.map((m) => ({
     muscle: m,
-    weight: (MUSCLE_WEIGHTS[m] ?? 1) + (m === focusMuscle ? 2 : 0),
+    weight: (MUSCLE_WEIGHTS[m] ?? 1) + (m === focusMuscle ? 2 : 0) + (genderBoosts[m] ?? 0),
   }));
 
   // Garante 1 por músculo quando cabe
@@ -655,7 +675,7 @@ export function generateWorkout(
     }
 
     // ── 2) Orçamento por músculo (distribuição balanceada) ───────────────
-    const allocation = allocateBudget(safeMuscles, remaining, focusMuscle);
+    const allocation = allocateBudget(safeMuscles, remaining, focusMuscle, profile.gender);
 
     // Ordem de processamento: foco primeiro, depois compostos grandes,
     // depois auxiliares. Garante que compostos grandes entrem antes de
