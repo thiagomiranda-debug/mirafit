@@ -24,7 +24,12 @@
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(git branch *)",
-      "Bash(git remote *)"
+      "Bash(git remote *)",
+      "Bash(vercel --version)",
+      "Bash(curl -I https://mirafit.vercel.app/icons/icon-192.png)",
+      "Bash(node -e ' *)",
+      "Bash(python -c ' *)",
+      "Bash(git push *)"
     ]
   }
 }

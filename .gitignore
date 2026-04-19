@@ -40,3 +40,5 @@ scripts/serviceAccountKey.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.vercel
