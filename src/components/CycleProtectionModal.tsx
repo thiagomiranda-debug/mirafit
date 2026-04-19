@@ -1,13 +1,15 @@
 "use client";
 
+import type { CyclePhase } from "@/types";
+
 interface CycleProtectionModalProps {
   daysOld: number;
-  nextPhase: 'acumulacao' | 'intensificacao';
+  nextPhase: CyclePhase;
   onCancel: () => void;
   onConfirm: () => void;
 }
 
-const PHASE_LABELS: Record<'acumulacao' | 'intensificacao', string> = {
+const PHASE_LABELS: Record<CyclePhase, string> = {
   acumulacao: 'Acumulação (volume)',
   intensificacao: 'Intensificação (força)',
 };
