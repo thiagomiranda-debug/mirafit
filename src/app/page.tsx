@@ -137,7 +137,7 @@ export default function Home() {
 
   if (!user) return null;
 
-  const firstName = profile?.name.split(" ")[0];
+  const firstName = profile?.name?.split(" ")[0];
 
   return (
     <div className="flex flex-1 flex-col bg-[var(--background)] pb-20" data-location={locationType}>
