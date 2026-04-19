@@ -33,6 +33,7 @@ export default function Home() {
   const [streak, setStreak] = useState<StreakData | null>(null);
   const [showNotifBanner, setShowNotifBanner] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [locationType, setLocationType] = useState<LocationType>(() => {
     if (typeof window !== "undefined") {
       return (localStorage.getItem("mirafit_location") as LocationType) || "gym";
@@ -54,7 +55,9 @@ export default function Home() {
       getActiveWorkoutByLocation(user.uid, locationType),
     ]);
     if (!p) {
-      router.push("/onboarding");
+      setPageLoading(false);
+      const dismissed = sessionStorage.getItem("mirafit_onboarding_dismissed");
+      if (!dismissed) setShowOnboardingModal(true);
       return;
     }
     setProfile(p);
