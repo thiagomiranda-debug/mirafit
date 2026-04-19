@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getFirestore } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
-import { generateWorkout } from "@/lib/workoutGenerator";
+import { generateWorkout, CARDIO_EQUIPMENTS, PreviousCycleContext, CatalogExercise } from "@/lib/workoutGenerator";
 import { UserProfile, LocationType } from "@/types";
 import { initAdmin } from "@/lib/firebaseAdmin";
 
@@ -47,10 +47,7 @@ export async function POST(req: NextRequest) {
       equipment: (d.data().equipment as string) || '',
     }));
 
-    // 3. Gera treino com regras (sem IA, sem custo)
-    const generated = generateWorkout(profile, catalog, locationType, daysAvailable);
-
-    // 4. Desativa treinos anteriores DO MESMO LOCAL e salva novo no Firestore
+    // 3. Busca treino ativo anterior (para construir contexto de periodização)
     const activeSnap = await db
       .collection("workouts")
       .where("user_id", "==", userId)
@@ -58,6 +55,49 @@ export async function POST(req: NextRequest) {
       .where("location_type", "==", locationType)
       .get();
 
+    let previousCycle: PreviousCycleContext | undefined;
+    if (!activeSnap.empty) {
+      // Pega o mais recente (pode haver múltiplos ativos em casos degenerados)
+      const sorted = activeSnap.docs.slice().sort((a, b) => {
+        const ta = (a.data().created_at as any)?.toMillis?.() ?? 0;
+        const tb = (b.data().created_at as any)?.toMillis?.() ?? 0;
+        return tb - ta;
+      });
+      const prevDoc = sorted[0];
+      const prevData = prevDoc.data();
+      const prevVariantId = prevData.split_variant_id as string | undefined;
+      const prevPhase = prevData.cycle_phase as ('acumulacao' | 'intensificacao' | undefined);
+
+      const routinesSnap = await prevDoc.ref.collection("routines").get();
+      const catalogMap = new Map<string, CatalogExercise>(catalog.map((c) => [c.id, c]));
+
+      const history: Record<string, string[]> = {};
+      for (const routineDoc of routinesSnap.docs) {
+        const exercises = (routineDoc.data().exercises || []) as Array<{ exercise_id: string }>;
+        for (const ex of exercises) {
+          const catEx = catalogMap.get(ex.exercise_id);
+          if (!catEx) continue;
+          const equipLower = (catEx.equipment || "").toLowerCase();
+          if (!equipLower || CARDIO_EQUIPMENTS.has(equipLower)) continue;
+          const muscle = catEx.muscle;
+          if (!history[muscle]) history[muscle] = [];
+          if (!history[muscle].includes(equipLower)) history[muscle].push(equipLower);
+        }
+      }
+
+      if (prevVariantId) {
+        previousCycle = {
+          splitVariantId: prevVariantId,
+          cyclePhase: prevPhase ?? 'acumulacao',
+          muscleEquipmentHistory: history,
+        };
+      }
+    }
+
+    // 4. Gera treino com regras + contexto do ciclo anterior
+    const generated = generateWorkout(profile, catalog, locationType, daysAvailable, previousCycle);
+
+    // 5. Desativa anteriores e grava o novo
     const batch = db.batch();
     activeSnap.docs.forEach((d) => batch.update(d.ref, { is_active: false }));
 
@@ -68,6 +108,8 @@ export async function POST(req: NextRequest) {
       is_active: true,
       location_type: locationType,
       created_at: new Date(),
+      split_variant_id: generated.split_variant_id,
+      cycle_phase: generated.cycle_phase,
     });
 
     generated.routines.forEach((routine, idx) => {
@@ -84,6 +126,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       workoutId: workoutRef.id,
       workout_type: generated.workout_type,
+      split_variant_id: generated.split_variant_id,
+      cycle_phase: generated.cycle_phase,
       routines: generated.routines,
     });
   } catch (err) {
