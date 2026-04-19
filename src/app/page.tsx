@@ -55,9 +55,9 @@ export default function Home() {
       getActiveWorkoutByLocation(user.uid, locationType),
     ]);
     if (!p) {
-      setPageLoading(false);
       const dismissed = sessionStorage.getItem("mirafit_onboarding_dismissed");
       if (!dismissed) setShowOnboardingModal(true);
+      setPageLoading(false);
       return;
     }
     setProfile(p);
@@ -76,7 +76,7 @@ export default function Home() {
         showTrainingReminder(nextRoutine?.name || "seu treino", user.uid);
       }
     });
-  }, [user, router, locationType]);
+  }, [user, locationType]);
 
   useEffect(() => {
     if (user) loadData();
