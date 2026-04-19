@@ -74,48 +74,110 @@ export default function TafHistoryChart({ userId, gender }: Props) {
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       {events.map((event) => {
         const data = byEvent[event] ?? [];
+        const latest = data.at(-1)?.score ?? null;
+        const previous = data.length > 1 ? data.at(-2)?.score ?? null : null;
+        const delta =
+          latest != null && previous != null ? latest - previous : null;
+        const trendText =
+          delta == null
+            ? "Sem comparacao"
+            : delta > 0
+              ? `+${delta} pts`
+              : delta < 0
+                ? `${delta} pts`
+                : "Estavel";
+
         return (
           <div
             key={event}
             className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"
           >
-            <p className="mb-1 text-[11px] font-bold text-[var(--text-muted)]">
-              {TAF_EVENT_LABELS[event]}
-            </p>
+            <div className="mb-2 flex items-start justify-between gap-2">
+              <p className="text-[11px] font-bold text-[var(--foreground)]">
+                {TAF_EVENT_LABELS[event]}
+              </p>
+              <span className="text-[10px] text-[var(--text-dim)]">
+                {data.length} tentativa{data.length === 1 ? "" : "s"}
+              </span>
+            </div>
 
-            {data.length < 2 ? (
-              <div className="flex h-[70px] items-center justify-center">
+            {data.length === 0 ? (
+              <div className="flex h-[70px] items-center justify-center rounded-lg bg-[var(--surface-2)]">
                 <p className="text-[10px] text-[var(--text-dim)]">
-                  Precisa ≥2 tentativas
+                  Sem registros
+                </p>
+              </div>
+            ) : data.length < 2 ? (
+              <div className="flex h-[70px] flex-col items-center justify-center rounded-lg bg-[var(--surface-2)] text-center">
+                <p
+                  className="text-xl text-[var(--amber-500)]"
+                  style={{ fontFamily: "var(--font-bebas)" }}
+                >
+                  {latest} pts
+                </p>
+                <p className="text-[10px] text-[var(--text-dim)]">
+                  Precisa de 2 tentativas
                 </p>
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={70}>
-                <LineChart
-                  data={data}
-                  margin={{ top: 2, right: 2, bottom: 0, left: 0 }}
-                >
-                  <XAxis dataKey="dateLabel" hide />
-                  <YAxis domain={[0, 100]} hide />
-                  <Tooltip
-                    contentStyle={{
-                      background: "var(--surface-2)",
-                      border: "1px solid var(--border)",
-                      borderRadius: "8px",
-                      fontSize: "11px",
+              <>
+                <ResponsiveContainer width="100%" height={70}>
+                  <LineChart
+                    data={data}
+                    margin={{ top: 6, right: 2, bottom: 0, left: 2 }}
+                  >
+                    <XAxis dataKey="dateLabel" hide />
+                    <YAxis domain={[0, 100]} hide />
+                    <Tooltip
+                      contentStyle={{
+                        background: "var(--surface-2)",
+                        border: "1px solid var(--border)",
+                        borderRadius: "8px",
+                        fontSize: "11px",
+                      }}
+                      formatter={(value) => [`${value ?? 0} pts`, "Nota"]}
+                      labelFormatter={(label) => `Data: ${label}`}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="score"
+                      stroke={strokeColor}
+                      strokeWidth={2}
+                      dot={{ r: 2, fill: strokeColor, strokeWidth: 0 }}
+                      activeDot={{ r: 4, fill: activeDotColor, strokeWidth: 0 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+
+                <div className="mt-2 flex items-center justify-between">
+                  <div>
+                    <p
+                      className="text-lg text-[var(--amber-500)]"
+                      style={{ fontFamily: "var(--font-bebas)" }}
+                    >
+                      {latest} pts
+                    </p>
+                    <p className="text-[10px] text-[var(--text-dim)]">
+                      nota mais recente
+                    </p>
+                  </div>
+                  <p
+                    className="text-[10px] font-semibold"
+                    style={{
+                      color:
+                        delta == null
+                          ? "var(--text-dim)"
+                          : delta > 0
+                            ? "var(--success)"
+                            : delta < 0
+                              ? "var(--red-500)"
+                              : "var(--text-dim)",
                     }}
-                    formatter={(value) => [`${value ?? 0} pts`, ""]}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="score"
-                    stroke={strokeColor}
-                    strokeWidth={2}
-                    dot={false}
-                    activeDot={{ r: 3, fill: activeDotColor, strokeWidth: 0 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+                  >
+                    {trendText}
+                  </p>
+                </div>
+              </>
             )}
           </div>
         );
