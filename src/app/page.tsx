@@ -15,9 +15,25 @@ import {
   alreadyShownToday,
   dismissReminderBanner,
 } from "@/lib/notifications";
-import { UserProfile, Workout, Routine, LocationType } from "@/types";
+import { UserProfile, Workout, Routine, LocationType, CyclePhase } from "@/types";
 import BottomNav from "@/components/BottomNav";
 import WorkoutConfigModal from "@/components/WorkoutConfigModal";
+import CycleProtectionModal from "@/components/CycleProtectionModal";
+
+/** Normaliza Firestore Timestamp (objeto com seconds) ou Date para Date. */
+function toDate(value: unknown): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === 'object' && value !== null && 'seconds' in value) {
+    const seconds = (value as { seconds: number }).seconds;
+    if (typeof seconds === 'number') return new Date(seconds * 1000);
+  }
+  if (typeof value === 'object' && value !== null && 'toDate' in value) {
+    const toDateFn = (value as { toDate: () => Date }).toDate;
+    if (typeof toDateFn === 'function') return toDateFn.call(value);
+  }
+  return null;
+}
 
 type ActiveWorkout = Workout & { routines: Routine[] };
 
@@ -33,6 +49,13 @@ export default function Home() {
   const [streak, setStreak] = useState<StreakData | null>(null);
   const [showNotifBanner, setShowNotifBanner] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const [showCycleProtection, setShowCycleProtection] = useState(false);
+  const [pendingGenArgs, setPendingGenArgs] = useState<{
+    loc: LocationType;
+    days: number;
+    daysOld: number;
+    nextPhase: CyclePhase;
+  } | null>(null);
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [locationType, setLocationType] = useState<LocationType>(() => {
     if (typeof window !== "undefined") {
@@ -84,6 +107,27 @@ export default function Home() {
 
   async function handleGenerateWorkout(loc: LocationType, daysAvailable: number) {
     if (!user) return;
+
+    // Proteção de ciclo: alerta se treino atual (mesmo local) tem menos de 30 dias
+    if (loc === locationType && workout?.created_at) {
+      const createdAt = toDate(workout.created_at);
+      if (createdAt) {
+        const daysOld = (Date.now() - createdAt.getTime()) / 86_400_000;
+        if (daysOld < 30) {
+          const prevPhase = workout.cycle_phase;
+          const nextPhase: CyclePhase = prevPhase === 'acumulacao' ? 'intensificacao' : 'acumulacao';
+          setPendingGenArgs({ loc, days: daysAvailable, daysOld, nextPhase });
+          setShowCycleProtection(true);
+          return;
+        }
+      }
+    }
+
+    await doGenerate(loc, daysAvailable);
+  }
+
+  async function doGenerate(loc: LocationType, daysAvailable: number) {
+    if (!user) return;
     setGenerating(true);
     setGenError("");
     try {
@@ -98,7 +142,6 @@ export default function Home() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erro ao gerar treino");
-      // Se o local gerado for diferente do atual, atualiza o toggle
       if (loc !== locationType) {
         handleLocationChange(loc);
       }
@@ -421,6 +464,23 @@ export default function Home() {
           onGenerate={handleGenerateWorkout}
           onClose={() => setShowConfigModal(false)}
           generating={generating}
+        />
+      )}
+
+      {showCycleProtection && pendingGenArgs && (
+        <CycleProtectionModal
+          daysOld={pendingGenArgs.daysOld}
+          nextPhase={pendingGenArgs.nextPhase}
+          onCancel={() => {
+            setShowCycleProtection(false);
+            setPendingGenArgs(null);
+          }}
+          onConfirm={async () => {
+            const args = pendingGenArgs;
+            setShowCycleProtection(false);
+            setPendingGenArgs(null);
+            await doGenerate(args.loc, args.days);
+          }}
         />
       )}
 
