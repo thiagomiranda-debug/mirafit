@@ -75,7 +75,8 @@ node scripts/seed-exercises.mjs
 - The `ExerciseCard` header must be a `<div role="button">` (not `<button>`) because the swap button is nested inside it — HTML forbids nested `<button>` elements
 - On finish: saves `WorkoutLog` with per-set data + optional notes to `workout_history`
 
-**TAF mode** (`/profile` aba TAF + `/taf/tentativa`):
+**TAF mode** (`/taf` + `/taf/tentativa`):
+- Rota dedicada acessada pela BottomNav (entre Histórico e Perfil). Sexo e faixa etária continuam sendo configurados no `/profile`.
 - Dashboard lê `taf_attempts` + `workout_history` e mostra melhor PR por evento.
 - Scoring: reps por interpolação linear (`calculateTafScore`), corridas por tiers tabelados do edital CBMAL (`scoreRunTime`) em `src/lib/tafData.ts`.
 - `/taf/tentativa` é um wizard (TAF completo) ou seleção de evento único (avulso); ambos gravam em `taf_attempts` via `createTafAttempt`.

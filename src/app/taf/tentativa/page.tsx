@@ -178,7 +178,7 @@ function TentativaInner() {
         results: resultsArray,
       });
 
-      router.push("/profile?tab=taf");
+      router.push("/taf");
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Erro ao salvar");
     } finally {
@@ -218,7 +218,7 @@ function TentativaInner() {
       <div className="min-h-screen bg-[var(--background)] px-4 py-6">
         <header className="mb-6">
           <button
-            onClick={() => router.push("/profile?tab=taf")}
+            onClick={() => router.push("/taf")}
             className="text-sm text-[var(--text-dim)]"
           >
             ← Voltar

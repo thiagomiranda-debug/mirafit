@@ -31,6 +31,19 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: "/taf",
+    label: "TAF",
+    icon: (active: boolean) => (
+      <svg className="h-6 w-6" fill={active ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={active ? 0 : 1.8}>
+        {active ? (
+          <path d="M12 2L4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z" />
+        ) : (
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 2L4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z" />
+        )}
+      </svg>
+    ),
+  },
+  {
     href: "/profile",
     label: "Perfil",
     icon: (active: boolean) => (

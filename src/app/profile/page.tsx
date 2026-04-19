@@ -13,7 +13,6 @@ import BottomNav from "@/components/BottomNav";
 import ProgressChart from "@/components/ProgressChart";
 import WorkoutHeatmap from "@/components/WorkoutHeatmap";
 import WeekComparison from "@/components/WeekComparison";
-import TafDashboard from "@/components/TafDashboard";
 import { TafGender, TafAgeGroup } from "@/lib/tafData";
 
 const GOALS = [
@@ -72,7 +71,6 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<"perfil" | "taf">("perfil");
   const [form, setForm] = useState<FormData>({
     name: "",
     age: "",
@@ -121,14 +119,6 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!authLoading && !user) router.push("/login");
   }, [user, authLoading, router]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const tabParam = params.get("tab");
-    if (tabParam === "taf") {
-      setTab("taf");
-    }
-  }, []);
 
   useEffect(() => {
     if (user) loadProfile();
@@ -232,33 +222,7 @@ export default function ProfilePage() {
         <p className="text-xs text-[var(--text-dim)]">Ajuste seus dados para treinos otimizados</p>
       </header>
 
-      {/* Tab Bar */}
-      <div className="mx-4 mt-3 flex gap-1 rounded-xl bg-[var(--surface-2)] p-1">
-        <button
-          onClick={() => setTab("perfil")}
-          className={`flex-1 rounded-lg py-2 text-sm font-bold transition-all ${
-            tab === "perfil"
-              ? "bg-[var(--surface)] text-[var(--foreground)] shadow-sm"
-              : "text-[var(--text-dim)]"
-          }`}
-        >
-          Perfil
-        </button>
-        <button
-          onClick={() => setTab("taf")}
-          className={`flex-1 rounded-lg py-2 text-sm font-bold transition-all ${
-            tab === "taf"
-              ? "bg-[var(--surface)] text-[var(--foreground)] shadow-sm"
-              : "text-[var(--text-dim)]"
-          }`}
-        >
-          Modo TAF
-        </button>
-      </div>
-
       <main className="flex flex-1 flex-col gap-5 px-4 py-5">
-        {tab === "perfil" ? (
-          <>
             {/* Comparação semanal */}
             <WeekComparison userId={user!.uid} />
 
@@ -582,15 +546,6 @@ export default function ProfilePage() {
                 Voltar e gerar novo treino
               </button>
             )}
-          </>
-        ) : (
-          /* ── Aba Modo TAF ── */
-          <TafDashboard
-            userId={user!.uid}
-            gender={form.gender || undefined}
-            ageGroup={form.age_group || undefined}
-          />
-        )}
       </main>
 
       <BottomNav />

@@ -159,8 +159,8 @@ export default function TafDashboard({
           Perfil TAF incompleto
         </p>
         <p className="mt-1 text-xs text-[var(--amber-500)]/80">
-          Configure seu sexo e faixa etaria na aba Perfil para calcular suas
-          notas do TAF.
+          Configure seu sexo e faixa etaria no Perfil para calcular suas notas
+          do TAF.
         </p>
       </div>
     );
