@@ -83,29 +83,31 @@ export async function getTafAttempts(
   maxResults: number = 30
 ): Promise<TafAttempt[]> {
   const db = getFirebaseDb();
-  const snap = await getDocs(
-    query(
-      collection(db, "taf_attempts"),
-      where("user_id", "==", userId),
-      orderBy("date", "desc"),
-      limit(maxResults)
-    )
-  );
+  try {
+    const snap = await getDocs(
+      query(
+        collection(db, "taf_attempts"),
+        where("user_id", "==", userId),
+        orderBy("date", "desc"),
+        limit(maxResults)
+      )
+    );
 
-  return snap.docs.map((docSnap) => {
-    const data = docSnap.data();
-    return {
-      id: docSnap.id,
-      user_id: data.user_id,
-      date:
-        data.date instanceof Timestamp ? data.date.toDate() : new Date(data.date),
-      type: data.type,
-      gender: data.gender,
-      age_group: data.age_group,
-      results: data.results ?? [],
-      total_score: data.total_score ?? 0,
-    } as TafAttempt;
-  });
+    return mapAttemptDocs(snap.docs);
+  } catch {
+    // Fallback enquanto o indice composto ainda nao foi criado no Firestore.
+    const snap = await getDocs(
+      query(
+        collection(db, "taf_attempts"),
+        where("user_id", "==", userId),
+        limit(maxResults * 3)
+      )
+    );
+
+    return mapAttemptDocs(snap.docs)
+      .sort((a, b) => b.date.getTime() - a.date.getTime())
+      .slice(0, maxResults);
+  }
 }
 
 /**
@@ -144,4 +146,26 @@ export async function getBestTafResults(
   }
 
   return best;
+}
+
+function mapAttemptDocs(
+  docs: Array<{
+    id: string;
+    data: () => Record<string, unknown>;
+  }>
+): TafAttempt[] {
+  return docs.map((docSnap) => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      user_id: data.user_id as string,
+      date:
+        data.date instanceof Timestamp ? data.date.toDate() : new Date(data.date as string),
+      type: data.type as TafAttemptType,
+      gender: data.gender as TafGender,
+      age_group: data.age_group as TafAgeGroup,
+      results: (data.results ?? []) as TafEventResult[],
+      total_score: (data.total_score as number | undefined) ?? 0,
+    };
+  });
 }
