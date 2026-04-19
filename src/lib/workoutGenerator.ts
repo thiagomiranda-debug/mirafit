@@ -346,59 +346,183 @@ interface GeneratedWorkout {
   routines: GeneratedRoutine[];
 }
 
-// Mapeamento de splits por número de dias
-const SPLITS: Record<number, { type: string; groups: string[][] }> = {
-  1: {
-    type: "Full Body",
-    groups: [
-      ["Peitorais", "Dorsal", "Deltoides", "Quadríceps", "Posterior de Coxa", "Bíceps", "Tríceps", "Abdômen"],
-    ],
-  },
-  2: {
-    type: "AB",
-    groups: [
-      ["Peitorais", "Deltoides", "Tríceps", "Abdômen"],
-      ["Dorsal", "Costas Superior", "Trapézio", "Bíceps", "Quadríceps", "Posterior de Coxa", "Panturrilhas", "Glúteos"],
-    ],
-  },
-  3: {
-    type: "ABC",
-    groups: [
-      ["Peitorais", "Deltoides", "Tríceps"],
-      ["Dorsal", "Costas Superior", "Trapézio", "Bíceps"],
-      ["Quadríceps", "Posterior de Coxa", "Panturrilhas", "Glúteos", "Abdômen"],
-    ],
-  },
-  4: {
-    type: "ABCD",
-    groups: [
-      ["Peitorais", "Tríceps"],
-      ["Dorsal", "Costas Superior", "Bíceps"],
-      ["Deltoides", "Trapézio", "Abdômen"],
-      ["Quadríceps", "Posterior de Coxa", "Panturrilhas", "Glúteos"],
-    ],
-  },
-  5: {
-    type: "ABCDE",
-    groups: [
-      ["Peitorais"],
-      ["Dorsal", "Costas Superior"],
-      ["Deltoides", "Trapézio"],
-      ["Quadríceps", "Posterior de Coxa", "Panturrilhas", "Glúteos"],
-      ["Bíceps", "Tríceps", "Abdômen"],
-    ],
-  },
-  6: {
-    type: "Push/Pull/Legs x2",
-    groups: [
-      ["Peitorais", "Deltoides", "Tríceps"],
-      ["Dorsal", "Costas Superior", "Trapézio", "Bíceps"],
-      ["Quadríceps", "Posterior de Coxa", "Panturrilhas", "Glúteos"],
-      ["Peitorais", "Deltoides", "Tríceps", "Abdômen"],
-      ["Dorsal", "Costas Superior", "Trapézio", "Bíceps"],
-      ["Quadríceps", "Posterior de Coxa", "Panturrilhas", "Glúteos", "Abdômen"],
-    ],
-  },
+/**
+ * Pool de variantes curadas por número de dias. O seletor escolhe via
+ * round-robin, priorizando uma variante DIFERENTE da última gerada para
+ * romper adaptação.
+ */
+const SPLIT_VARIANTS: Record<number, SplitVariant[]> = {
+  1: [
+    {
+      id: 'fullbody_classico',
+      type: 'Full Body',
+      groups: [
+        ["Peitorais", "Dorsal", "Deltoides", "Quadríceps", "Posterior de Coxa", "Bíceps", "Tríceps", "Abdômen"],
+      ],
+    },
+  ],
+  2: [
+    {
+      id: 'ab_sinergista',
+      type: 'AB',
+      groups: [
+        ["Peitorais", "Deltoides", "Tríceps", "Abdômen"],
+        ["Dorsal", "Costas Superior", "Trapézio", "Bíceps", "Quadríceps", "Posterior de Coxa", "Panturrilhas", "Glúteos"],
+      ],
+    },
+    {
+      id: 'ab_upper_lower',
+      type: 'AB',
+      groups: [
+        ["Peitorais", "Dorsal", "Costas Superior", "Deltoides", "Bíceps", "Tríceps"],
+        ["Quadríceps", "Posterior de Coxa", "Glúteos", "Panturrilhas", "Abdômen"],
+      ],
+    },
+  ],
+  3: [
+    {
+      id: 'abc_push_pull_legs',
+      type: 'ABC',
+      groups: [
+        ["Peitorais", "Deltoides", "Tríceps"],
+        ["Dorsal", "Costas Superior", "Trapézio", "Bíceps"],
+        ["Quadríceps", "Posterior de Coxa", "Panturrilhas", "Glúteos", "Abdômen"],
+      ],
+    },
+    {
+      id: 'abc_upper_lower_full',
+      type: 'ABC',
+      groups: [
+        ["Peitorais", "Deltoides", "Tríceps"],
+        ["Quadríceps", "Posterior de Coxa", "Glúteos", "Panturrilhas"],
+        ["Dorsal", "Costas Superior", "Bíceps", "Abdômen"],
+      ],
+    },
+    {
+      id: 'abc_antagonista',
+      type: 'ABC',
+      groups: [
+        ["Peitorais", "Dorsal"],
+        ["Quadríceps", "Posterior de Coxa", "Glúteos", "Panturrilhas"],
+        ["Deltoides", "Trapézio", "Bíceps", "Tríceps", "Abdômen"],
+      ],
+    },
+  ],
+  4: [
+    {
+      id: 'abcd_sinergista',
+      type: 'ABCD',
+      groups: [
+        ["Peitorais", "Tríceps"],
+        ["Dorsal", "Costas Superior", "Bíceps"],
+        ["Deltoides", "Trapézio", "Abdômen"],
+        ["Quadríceps", "Posterior de Coxa", "Panturrilhas", "Glúteos"],
+      ],
+    },
+    {
+      id: 'abcd_antagonista',
+      type: 'ABCD',
+      groups: [
+        ["Peitorais", "Dorsal"],
+        ["Quadríceps", "Panturrilhas"],
+        ["Deltoides", "Trapézio", "Bíceps", "Tríceps"],
+        ["Posterior de Coxa", "Glúteos", "Abdômen"],
+      ],
+    },
+    {
+      id: 'abcd_upper_lower',
+      type: 'ABCD',
+      groups: [
+        ["Peitorais", "Dorsal", "Deltoides"],
+        ["Quadríceps", "Panturrilhas"],
+        ["Costas Superior", "Trapézio", "Bíceps", "Tríceps"],
+        ["Posterior de Coxa", "Glúteos", "Abdômen"],
+      ],
+    },
+  ],
+  5: [
+    {
+      id: 'abcde_classico',
+      type: 'ABCDE',
+      groups: [
+        ["Peitorais"],
+        ["Dorsal", "Costas Superior"],
+        ["Deltoides", "Trapézio"],
+        ["Quadríceps", "Posterior de Coxa", "Panturrilhas", "Glúteos"],
+        ["Bíceps", "Tríceps", "Abdômen"],
+      ],
+    },
+    {
+      id: 'abcde_arnold',
+      type: 'ABCDE',
+      groups: [
+        ["Peitorais", "Dorsal"],
+        ["Deltoides", "Bíceps", "Tríceps"],
+        ["Quadríceps", "Posterior de Coxa", "Glúteos", "Panturrilhas"],
+        ["Peitorais", "Dorsal", "Costas Superior"],
+        ["Deltoides", "Trapézio", "Bíceps", "Tríceps", "Abdômen"],
+      ],
+    },
+    {
+      id: 'abcde_ppl_plus',
+      type: 'ABCDE',
+      groups: [
+        ["Peitorais", "Deltoides", "Tríceps"],
+        ["Dorsal", "Costas Superior", "Trapézio", "Bíceps"],
+        ["Quadríceps", "Posterior de Coxa", "Glúteos", "Panturrilhas"],
+        ["Peitorais", "Dorsal", "Deltoides"],
+        ["Bíceps", "Tríceps", "Abdômen"],
+      ],
+    },
+  ],
+  6: [
+    {
+      id: 'ppl_x2_classico',
+      type: 'Push/Pull/Legs x2',
+      groups: [
+        ["Peitorais", "Deltoides", "Tríceps"],
+        ["Dorsal", "Costas Superior", "Trapézio", "Bíceps"],
+        ["Quadríceps", "Posterior de Coxa", "Panturrilhas", "Glúteos"],
+        ["Peitorais", "Deltoides", "Tríceps", "Abdômen"],
+        ["Dorsal", "Costas Superior", "Trapézio", "Bíceps"],
+        ["Quadríceps", "Posterior de Coxa", "Panturrilhas", "Glúteos", "Abdômen"],
+      ],
+    },
+    {
+      id: 'ppl_x2_antagonista',
+      type: 'Push/Pull/Legs x2',
+      groups: [
+        ["Peitorais", "Dorsal"],
+        ["Quadríceps", "Panturrilhas"],
+        ["Deltoides", "Bíceps", "Tríceps"],
+        ["Peitorais", "Dorsal", "Costas Superior"],
+        ["Posterior de Coxa", "Glúteos"],
+        ["Bíceps", "Tríceps", "Abdômen"],
+      ],
+    },
+    {
+      id: 'bro_split_plus',
+      type: 'Bro Split+',
+      groups: [
+        ["Peitorais"],
+        ["Dorsal", "Costas Superior"],
+        ["Quadríceps", "Panturrilhas"],
+        ["Deltoides", "Trapézio"],
+        ["Bíceps", "Tríceps"],
+        ["Posterior de Coxa", "Glúteos", "Abdômen"],
+      ],
+    },
+  ],
+};
+
+/** Override especial para Quartel com 2 dias — evita split de braço/perna quando inventário é restrito. */
+const QUARTEL_2DAY_VARIANT: SplitVariant = {
+  id: 'ab_quartel_full',
+  type: 'AB Full Body',
+  groups: [
+    ["Peitorais", "Dorsal", "Quadríceps", "Deltoides", "Tríceps", "Abdômen"],
+    ["Peitorais", "Dorsal", "Posterior de Coxa", "Deltoides", "Bíceps", "Glúteos"],
+  ],
 };
 
 // Nomes das rotinas por letra
@@ -618,17 +742,11 @@ export function generateWorkout(
 ): GeneratedWorkout {
   const rawDays = daysAvailable ?? profile.days_per_week;
   const days = Math.max(1, Math.min(6, rawDays));
-  let split = SPLITS[days];
-
+  let variants = SPLIT_VARIANTS[days];
   if (locationType === 'quartel' && days === 2) {
-    split = {
-      type: "AB Full Body",
-      groups: [
-        ["Peitorais", "Dorsal", "Quadríceps", "Deltoides", "Tríceps", "Abdômen"],
-        ["Peitorais", "Dorsal", "Posterior de Coxa", "Deltoides", "Bíceps", "Glúteos"],
-      ],
-    };
+    variants = [QUARTEL_2DAY_VARIANT];
   }
+  const split = variants[0];  // real selector comes in Task 4
 
   const { sets: baseSets, reps: baseReps } = getSetsReps(profile.goal, profile.level);
   const maxExercises = getExercisesPerRoutine(profile.time_per_session, baseSets);
