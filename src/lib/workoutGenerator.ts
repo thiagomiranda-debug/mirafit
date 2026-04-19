@@ -625,6 +625,46 @@ function adjustSets(
   return s;
 }
 
+/** Baixa o rep range para compostos na fase de intensificação. */
+function shiftRepsDown(reps: string): string {
+  const map: Record<string, string> = {
+    '4-6': '3-5',
+    '6-10': '4-6',
+    '8-12': '6-8',
+    '10-12': '8-10',
+    '12-15': '10-12',
+    '15-20': '12-15',
+  };
+  return map[reps] ?? reps;
+}
+
+/** Baixa suavemente o rep range para isoladores (sem cair demais). */
+function shiftRepsDownSlight(reps: string): string {
+  const map: Record<string, string> = {
+    '8-12': '8-10',
+    '10-12': '10-12',
+    '12-15': '10-12',
+    '15-20': '12-15',
+  };
+  return map[reps] ?? reps;
+}
+
+/**
+ * Camada final que modula sets/reps de acordo com a fase do mesociclo.
+ * Acumulação = baseline do goal (mais reps, mesmos sets).
+ * Intensificação = +1 set em compostos e redução de reps (foco em força).
+ */
+function applyCyclePhase(
+  sets: number,
+  reps: string,
+  isCompound: boolean,
+  phase: CyclePhase,
+): { sets: number; reps: string } {
+  if (phase === 'acumulacao') return { sets, reps };
+  if (isCompound) return { sets: sets + 1, reps: shiftRepsDown(reps) };
+  return { sets, reps: shiftRepsDownSlight(reps) };
+}
+
 /** Orçamento de exercícios por rotina baseado em sets/tempo.
  * Aproximação: cada set com descanso ≈ 2.5 min; 10 min de aquecimento.
  * exercises ≈ (time - 10) / (sets * 2.5) */
@@ -884,13 +924,14 @@ export function generateWorkout(
       for (const ex of picked) {
         if (remaining <= 0) break;
         const isCompound = isCompoundExercise(ex);
-        const sets = adjustSets(
+        const baseSetsAdj = adjustSets(
           baseSets,
           profile.months_training,
           profile.age_group,
           isCompound,
         );
-        const reps = adjustReps(baseReps, isCompound);
+        const baseRepsAdj = adjustReps(baseReps, isCompound);
+        const { sets, reps } = applyCyclePhase(baseSetsAdj, baseRepsAdj, isCompound, cyclePhase);
         usedIds.add(ex.id);
         usedPatterns.add(patternKey(ex));
         selected.push({
@@ -916,13 +957,14 @@ export function generateWorkout(
       for (const { ex } of leftovers) {
         if (remaining <= 0) break;
         const isCompound = isCompoundExercise(ex);
-        const sets = adjustSets(
+        const baseSetsAdj = adjustSets(
           baseSets,
           profile.months_training,
           profile.age_group,
           isCompound,
         );
-        const reps = adjustReps(baseReps, isCompound);
+        const baseRepsAdj = adjustReps(baseReps, isCompound);
+        const { sets, reps } = applyCyclePhase(baseSetsAdj, baseRepsAdj, isCompound, cyclePhase);
         usedIds.add(ex.id);
         usedPatterns.add(patternKey(ex));
         selected.push({
