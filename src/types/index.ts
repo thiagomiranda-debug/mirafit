@@ -64,6 +64,10 @@ export interface Workout {
   created_at: Date;
   location_type?: LocationType;
   routines?: Routine[];
+  /** ID da variante curada usada nesta geração (ex: "abcd_sinergista"). Undefined em workouts pré-periodização. */
+  split_variant_id?: string;
+  /** Fase do mesociclo — alterna a cada geração para alternar volume/intensidade. */
+  cycle_phase?: 'acumulacao' | 'intensificacao';
 }
 
 export interface SetPerformance {
