@@ -191,7 +191,7 @@ const EQUIPMENT_SCORE: Record<string, number> = {
   "roller": 3,
 };
 
-const CARDIO_EQUIPMENTS = new Set<string>([
+export const CARDIO_EQUIPMENTS = new Set<string>([
   'cardio',
   'stationary bike',
   'elliptical machine',
@@ -688,6 +688,7 @@ function scoreExercise(
   ex: CatalogExercise,
   muscle: string,
   profile: UserProfile,
+  previousEquipmentForMuscle?: string[],
 ): number {
   const name = ex.name || "";
   const equip = (ex.equipment || "").toLowerCase();
@@ -725,6 +726,14 @@ function scoreExercise(
   // 40+: reduz levemente score de exercícios com alto stress articular
   if (profile.age_group === "over_40") {
     if (/\bsquat\b|deadlift|clean|snatch|jump/i.test(name)) score -= 8;
+  }
+
+  // Penalidade de equipamento repetido do ciclo anterior (motor de periodização)
+  if (previousEquipmentForMuscle && previousEquipmentForMuscle.length > 0) {
+    const equipLower = (ex.equipment || "").toLowerCase();
+    if (!CARDIO_EQUIPMENTS.has(equipLower) && previousEquipmentForMuscle.includes(equipLower)) {
+      score -= 20;
+    }
   }
 
   return score;
@@ -826,8 +835,9 @@ export function generateWorkout(
     byMuscle[ex.muscle].push(ex);
   }
   for (const m of Object.keys(byMuscle)) {
+    const prevEquip = previousCycle?.muscleEquipmentHistory[m];
     byMuscle[m] = byMuscle[m]
-      .map((ex) => ({ ex, s: scoreExercise(ex, m, profile) }))
+      .map((ex) => ({ ex, s: scoreExercise(ex, m, profile, prevEquip) }))
       .sort((a, b) => b.s - a.s)
       .map((x) => x.ex);
   }
@@ -947,9 +957,10 @@ export function generateWorkout(
     if (remaining > 0) {
       const leftovers: { ex: CatalogExercise; s: number }[] = [];
       for (const m of safeMuscles) {
+        const prevEquip = previousCycle?.muscleEquipmentHistory[m];
         for (const ex of byMuscle[m] || []) {
           if (usedIds.has(ex.id) || usedPatterns.has(patternKey(ex))) continue;
-          leftovers.push({ ex, s: scoreExercise(ex, m, profile) });
+          leftovers.push({ ex, s: scoreExercise(ex, m, profile, prevEquip) });
         }
       }
       leftovers.sort((a, b) => b.s - a.s);
