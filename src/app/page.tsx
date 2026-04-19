@@ -135,9 +135,9 @@ export default function Home() {
     );
   }
 
-  if (!user || !profile) return null;
+  if (!user) return null;
 
-  const firstName = profile.name.split(" ")[0];
+  const firstName = profile?.name.split(" ")[0];
 
   return (
     <div className="flex flex-1 flex-col bg-[var(--background)] pb-20" data-location={locationType}>
@@ -151,7 +151,7 @@ export default function Home() {
               Bem-vindo
             </p>
             <h1 className="mt-0.5 text-2xl font-bold text-[var(--foreground)]">
-              {firstName}
+              {firstName ?? "Bem-vindo"}
             </h1>
           </div>
           <button
@@ -166,20 +166,22 @@ export default function Home() {
         </div>
 
         {/* Tags */}
-        <div className="relative mt-3 flex flex-wrap gap-2">
-          {[
-            `${profile.days_per_week}x/semana`,
-            `${profile.time_per_session} min`,
-            profile.level.charAt(0).toUpperCase() + profile.level.slice(1),
-          ].map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full bg-[var(--surface-2)] px-3 py-1 text-xs font-medium text-[var(--text-muted)]"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
+        {profile && (
+          <div className="relative mt-3 flex flex-wrap gap-2">
+            {[
+              `${profile.days_per_week}x/semana`,
+              `${profile.time_per_session} min`,
+              profile.level.charAt(0).toUpperCase() + profile.level.slice(1),
+            ].map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full bg-[var(--surface-2)] px-3 py-1 text-xs font-medium text-[var(--text-muted)]"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
       </header>
 
       {/* ── Location Toggle ── */}
@@ -266,7 +268,7 @@ export default function Home() {
                 style={{ fontFamily: "var(--font-bebas)" }}
               >
                 {streak.thisWeekDays.filter(Boolean).length}
-                <span className="text-lg text-[var(--text-dim)]">/{profile.days_per_week}</span>
+                <span className="text-lg text-[var(--text-dim)]">/{profile?.days_per_week || 0}</span>
               </p>
               <p className="mt-1 text-[10px] font-medium uppercase tracking-wider text-[var(--text-dim)]">
                 Esta semana
@@ -337,7 +339,7 @@ export default function Home() {
         {/* ── Generate button ── */}
         <button
           onClick={() => setShowConfigModal(true)}
-          disabled={generating}
+          disabled={generating || !profile}
           className="animate-fade-in-up group relative flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-2xl py-4 text-sm font-bold text-white shadow-lg transition-all hover:shadow-xl disabled:opacity-60 gradient-red animate-pulse-glow"
         >
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 opacity-0 transition-opacity group-hover:opacity-100" />
