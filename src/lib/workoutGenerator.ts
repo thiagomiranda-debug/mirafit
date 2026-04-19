@@ -730,8 +730,7 @@ function scoreExercise(
 
   // Penalidade de equipamento repetido do ciclo anterior (motor de periodização)
   if (previousEquipmentForMuscle && previousEquipmentForMuscle.length > 0) {
-    const equipLower = (ex.equipment || "").toLowerCase();
-    if (!CARDIO_EQUIPMENTS.has(equipLower) && previousEquipmentForMuscle.includes(equipLower)) {
+    if (!CARDIO_EQUIPMENTS.has(equip) && previousEquipmentForMuscle.includes(equip)) {
       score -= 20;
     }
   }
