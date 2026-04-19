@@ -488,11 +488,18 @@ function scoreExercise(
   const patterns = TOP_EXERCISE_PATTERNS[muscle] || [];
   if (patterns.some((re) => re.test(name))) score += 40;
 
-  // Viés por gênero: ênfase em glúteo/posterior para público feminino.
+  // Viés por gênero: boost em exercícios prioritários por grupo muscular.
   if (profile.gender === "feminino") {
-    if (muscle === "Glúteos" || muscle === "Posterior de Coxa") {
-      if (/hip thrust|romanian|\brdl\b|bridge|kickback|bulgarian/i.test(name)) {
+    if (["Glúteos", "Posterior de Coxa", "Quadríceps", "Adutores"].includes(muscle)) {
+      if (/hip thrust|romanian|\brdl\b|bridge|kickback|bulgarian|\bsquat\b|\blunge\b|leg press/i.test(name)) {
         score += 15;
+      }
+    }
+  }
+  if (profile.gender === "masculino") {
+    if (["Peitorais", "Dorsal", "Deltoides"].includes(muscle)) {
+      if (/bench press|overhead press|military press|\brow\b|pull.?up|lat.?pull/i.test(name)) {
+        score += 12;
       }
     }
   }
