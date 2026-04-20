@@ -59,8 +59,8 @@ export async function POST(req: NextRequest) {
     if (!activeSnap.empty) {
       // Pega o mais recente (pode haver múltiplos ativos em casos degenerados)
       const sorted = activeSnap.docs.slice().sort((a, b) => {
-        const ta = (a.data().created_at as any)?.toMillis?.() ?? 0;
-        const tb = (b.data().created_at as any)?.toMillis?.() ?? 0;
+        const ta = a.data().created_at?.toMillis?.() ?? 0;
+        const tb = b.data().created_at?.toMillis?.() ?? 0;
         return tb - ta;
       });
       const prevDoc = sorted[0];
