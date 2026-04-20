@@ -49,6 +49,7 @@ export default function HistoryPage() {
   const [logs, setLogs] = useState<WorkoutLog[]>([]);
   const [exerciseNames, setExerciseNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [tab, setTab] = useState<Tab>("treinos");
 
   const loadLogs = useCallback(async () => {
@@ -67,8 +68,9 @@ export default function HistoryPage() {
         }
         setExerciseNames(names);
       }
-    } catch {
-      // silently fail
+    } catch (err) {
+      console.error("[HistoryPage]", err);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -113,6 +115,23 @@ export default function HistoryPage() {
     return (
       <div className="flex flex-1 items-center justify-center bg-[var(--background)]">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--red-500)] border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex flex-1 flex-col bg-[var(--background)] pb-20">
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center">
+          <p className="text-sm font-semibold text-[var(--text-muted)]">Não foi possível carregar o histórico.</p>
+          <button
+            onClick={() => { setLoadError(false); setLoading(true); loadLogs(); }}
+            className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-bold text-[var(--foreground)] transition-colors hover:bg-[var(--surface-2)]"
+          >
+            Tentar novamente
+          </button>
+        </div>
+        <BottomNav />
       </div>
     );
   }

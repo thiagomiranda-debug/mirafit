@@ -33,9 +33,10 @@ service cloud.firestore {
 
     // Tentativas de TAF: imutaveis apos criacao, so o dono acessa
     match /taf_attempts/{attemptId} {
-      allow read, delete: if request.auth != null && resource.data.user_id == request.auth.uid;
+      allow read: if request.auth != null && resource.data.user_id == request.auth.uid;
       allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
       allow update: if false;
+      allow delete: if false;
     }
   }
 }

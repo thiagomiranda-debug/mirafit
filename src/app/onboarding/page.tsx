@@ -212,15 +212,15 @@ export default function OnboardingPage() {
 
               <div className="grid grid-cols-3 gap-3">
                 <Field label="Idade">
-                  <input type="number" value={form.age} onChange={(e) => set("age", e.target.value)}
+                  <input type="number" inputMode="numeric" value={form.age} onChange={(e) => set("age", e.target.value)}
                     placeholder="25" min={10} max={100} className={inputCls} />
                 </Field>
                 <Field label="Peso (kg)">
-                  <input type="number" value={form.weight} onChange={(e) => set("weight", e.target.value)}
+                  <input type="number" inputMode="numeric" value={form.weight} onChange={(e) => set("weight", e.target.value)}
                     placeholder="75" min={30} className={inputCls} />
                 </Field>
                 <Field label="Altura (cm)">
-                  <input type="number" value={form.height} onChange={(e) => set("height", e.target.value)}
+                  <input type="number" inputMode="numeric" value={form.height} onChange={(e) => set("height", e.target.value)}
                     placeholder="175" min={100} className={inputCls} />
                 </Field>
               </div>
@@ -256,7 +256,7 @@ export default function OnboardingPage() {
               </Field>
 
               <Field label="Há quantos meses treina continuamente?">
-                <input type="number" value={form.months_training}
+                <input type="number" inputMode="numeric" value={form.months_training}
                   onChange={(e) => set("months_training", e.target.value)}
                   placeholder="Ex: 6 (0 se nunca treinou)" min={0} max={600} className={inputCls} />
               </Field>

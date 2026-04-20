@@ -10,7 +10,6 @@ import {
   limit,
   serverTimestamp,
   writeBatch,
-  updateDoc,
 } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase";
 import { Workout, Routine, LibraryExercise, LocationType } from "@/types";
@@ -34,7 +33,7 @@ export async function getExercisesByMuscle(
 // Busca os grupos musculares distintos do catálogo
 export async function getDistinctMuscleGroups(): Promise<string[]> {
   const db = getFirebaseDb();
-  const snap = await getDocs(collection(db, "library_exercises"));
+  const snap = await getDocs(query(collection(db, "library_exercises"), limit(500)));
   const muscles = new Set<string>();
   snap.docs.forEach((d) => {
     const m = d.data().target_muscle as string;
@@ -48,7 +47,7 @@ export async function getExerciseCatalog(): Promise<
   Pick<LibraryExercise, "id" | "name" | "target_muscle">[]
 > {
   const db = getFirebaseDb();
-  const snap = await getDocs(collection(db, "library_exercises"));
+  const snap = await getDocs(query(collection(db, "library_exercises"), limit(500)));
   return snap.docs.map((d) => ({
     id: d.id,
     name: d.data().name as string,
