@@ -43,7 +43,7 @@ node scripts/seed-exercises.mjs
 |---|---|
 | `users/{uid}` | UserProfile (anamnese: goals, level, schedule) |
 | `library_exercises/{id}` | Exercise catalog seeded from yuhonas/free-exercise-db |
-| `workouts/{id}` | Active/past workouts per user; `routines` subcollection |
+| `workouts/{id}` | Active/past workouts per user; `routines` subcollection; fields `split_variant_id` and `cycle_phase` added by periodization engine |
 | `workouts/{id}/routines/{id}` | Routine with ordered exercises list |
 | `workout_history/{id}` | Logged workout sessions with per-set performance + optional notes |
 | `taf_attempts/{id}` | Tentativas de TAF (imutáveis); `type: full | single`, snapshot de gender/age_group |
@@ -54,8 +54,23 @@ node scripts/seed-exercises.mjs
 1. Client sends Firebase ID token in `Authorization: Bearer <token>` header
 2. API route verifies token via Firebase Admin `verifyIdToken`
 3. Fetches user profile + full exercise catalog from Firestore (Admin SDK)
-4. `src/lib/workoutGenerator.ts` runs a rule-based split (AB/ABC/ABCD/ABCDE/PPL×2) based on `days_per_week`, `goal`, `level`, `time_per_session`, and `medical_restrictions` — no AI/API cost
-5. Deactivates previous active workouts and saves new workout+routines via batch write
+4. Reads previous active workout to build `PreviousCycleContext` (split variant used, cycle phase, equipment history per muscle)
+5. `src/lib/workoutGenerator.ts` runs a rule-based split selected via round-robin from `SPLIT_VARIANTS` pool — no AI/API cost
+6. Deactivates previous active workouts and saves new workout+routines (including `split_variant_id` and `cycle_phase`) via batch write
+
+**Periodization engine** (`src/lib/workoutGenerator.ts`):
+- `SPLIT_VARIANTS: Record<number, SplitVariant[]>` — curated pool of split variants per number of days; `selectNextVariant()` picks the next via round-robin (never repeats consecutive variant)
+- `CyclePhase = 'acumulacao' | 'intensificacao'` (defined in `src/types/index.ts`) — alternates each generation via `nextCyclePhase()`
+- `applyCyclePhase(sets, reps, isCompound, phase)` — acumulação: higher reps/volume; intensificação: +1 set on compounds, lower rep ranges
+- `scoreExercise()` applies a `-20` penalty for (muscle, equipment) pairs already used in the previous cycle — soft nudge toward equipment variety, not a hard block
+- `PreviousCycleContext` is the contract between API route and generator: `{ splitVariantId, cyclePhase, muscleEquipmentHistory }`; missing (first-ever generation) is safe — all params optional
+- `CARDIO_EQUIPMENTS` (exported Set) lists equipment to exclude from history tracking (treadmill, bike, etc.)
+- Quartel location has its own fixed variant `QUARTEL_2DAY_VARIANT` and a separate 1-day variant pool
+
+**Cycle protection modal** (`src/components/CycleProtectionModal.tsx`):
+- Bottom-sheet shown on home page when user tries to regenerate a workout less than 30 days old
+- Props: `daysOld`, `nextPhase` (shown as preview), `onCancel`, `onConfirm`
+- Logic lives in `src/app/page.tsx`: `handleGenerateWorkout` checks `workout.created_at` and gates to `doGenerate`; uses `toDate()` helper to normalize Firebase Timestamp vs Date
 
 **Manual workout builder** (`/builder`):
 - Route for users with personal trainers to input their own workout plans
@@ -110,9 +125,13 @@ Copy `.env.local.example` to `.env.local`. `NEXT_PUBLIC_*` vars are client-side 
 
 `firestore.rules` defines the access rules. Deploy manually via Firebase Console → Firestore → Rules. The API route writes workouts/routines via Admin SDK (bypasses client rules); client reads are subject to the rules.
 
-The `workout_history` collection requires a composite index on `(user_id ASC, date DESC)`. If the index is missing, Firestore returns an error with a direct link to create it.
+All required composite indexes are active in production:
+- `workout_history`: `user_id ASC, date DESC`
+- `taf_attempts`: `user_id ASC, date DESC`
+- `workouts`: `is_active ASC, user_id ASC, created_at DESC`
+- `workouts`: `is_active ASC, location_type ASC, user_id ASC, created_at DESC`
 
-A coleção `taf_attempts` também requer um índice composto em `(user_id ASC, date DESC)`.
+If a new query needs an index, Firestore returns an error with a direct link to create it.
 
 ### PWA
 
