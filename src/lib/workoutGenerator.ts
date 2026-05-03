@@ -22,6 +22,8 @@ export interface SplitVariant {
   type: string;
   /** Matriz dias × grupos musculares */
   groups: string[][];
+  /** Gênero para qual esta variante é otimizada. Feminino: ênfase inferior/glúteo. Masculino: ênfase superior. */
+  gender: 'masculino' | 'feminino';
 }
 
 export interface PreviousCycleContext {
@@ -352,15 +354,18 @@ const SPLIT_VARIANTS: Record<number, SplitVariant[]> = {
     {
       id: 'fullbody_classico',
       type: 'Full Body',
+      gender: 'masculino',
       groups: [
         ["Peitorais", "Dorsal", "Deltoides", "Quadríceps", "Posterior de Coxa", "Bíceps", "Tríceps", "Abdômen"],
       ],
     },
   ],
   2: [
+    // ── Masculino ────────────────────────────────────────────────────────────
     {
       id: 'ab_sinergista',
       type: 'AB',
+      gender: 'masculino',
       groups: [
         ["Peitorais", "Deltoides", "Tríceps", "Abdômen"],
         ["Dorsal", "Costas Superior", "Trapézio", "Bíceps", "Quadríceps", "Posterior de Coxa", "Panturrilhas", "Glúteos"],
@@ -369,16 +374,56 @@ const SPLIT_VARIANTS: Record<number, SplitVariant[]> = {
     {
       id: 'ab_upper_lower',
       type: 'AB',
+      gender: 'masculino',
       groups: [
         ["Peitorais", "Dorsal", "Costas Superior", "Deltoides", "Bíceps", "Tríceps"],
         ["Quadríceps", "Posterior de Coxa", "Glúteos", "Panturrilhas", "Abdômen"],
       ],
     },
+    {
+      id: 'm_ab_push_pull',
+      type: 'AB',
+      gender: 'masculino',
+      groups: [
+        ["Peitorais", "Deltoides", "Tríceps", "Quadríceps", "Abdômen"],
+        ["Dorsal", "Costas Superior", "Trapézio", "Bíceps", "Posterior de Coxa"],
+      ],
+    },
+    // ── Feminino ─────────────────────────────────────────────────────────────
+    {
+      id: 'f_ab_lower_upper',
+      type: 'AB',
+      gender: 'feminino',
+      groups: [
+        ["Quadríceps", "Glúteos", "Posterior de Coxa", "Adutores", "Panturrilhas", "Abdômen"],
+        ["Peitorais", "Dorsal", "Deltoides", "Bíceps", "Tríceps", "Glúteos", "Abdômen"],
+      ],
+    },
+    {
+      id: 'f_ab_posterior_anterior',
+      type: 'AB',
+      gender: 'feminino',
+      groups: [
+        ["Glúteos", "Posterior de Coxa", "Dorsal", "Costas Superior", "Abdômen"],
+        ["Quadríceps", "Adutores", "Peitorais", "Deltoides", "Bíceps", "Tríceps"],
+      ],
+    },
+    {
+      id: 'f_ab_glutes_full',
+      type: 'AB',
+      gender: 'feminino',
+      groups: [
+        ["Glúteos", "Posterior de Coxa", "Quadríceps", "Adutores", "Abdômen"],
+        ["Peitorais", "Dorsal", "Deltoides", "Bíceps", "Tríceps", "Glúteos", "Panturrilhas"],
+      ],
+    },
   ],
   3: [
+    // ── Masculino ────────────────────────────────────────────────────────────
     {
       id: 'abc_push_pull_legs',
       type: 'ABC',
+      gender: 'masculino',
       groups: [
         ["Peitorais", "Deltoides", "Tríceps"],
         ["Dorsal", "Costas Superior", "Trapézio", "Bíceps"],
@@ -388,6 +433,7 @@ const SPLIT_VARIANTS: Record<number, SplitVariant[]> = {
     {
       id: 'abc_upper_lower_full',
       type: 'ABC',
+      gender: 'masculino',
       groups: [
         ["Peitorais", "Deltoides", "Tríceps"],
         ["Quadríceps", "Posterior de Coxa", "Glúteos", "Panturrilhas"],
@@ -397,17 +443,51 @@ const SPLIT_VARIANTS: Record<number, SplitVariant[]> = {
     {
       id: 'abc_antagonista',
       type: 'ABC',
+      gender: 'masculino',
       groups: [
         ["Peitorais", "Dorsal"],
         ["Quadríceps", "Posterior de Coxa", "Glúteos", "Panturrilhas"],
         ["Deltoides", "Trapézio", "Bíceps", "Tríceps", "Abdômen"],
       ],
     },
+    // ── Feminino ─────────────────────────────────────────────────────────────
+    {
+      id: 'f_abc_lower_lower_upper',
+      type: 'ABC',
+      gender: 'feminino',
+      groups: [
+        ["Quadríceps", "Adutores", "Panturrilhas", "Glúteos", "Abdômen"],
+        ["Glúteos", "Posterior de Coxa", "Adutores", "Abdômen"],
+        ["Peitorais", "Dorsal", "Deltoides", "Bíceps", "Tríceps", "Costas Superior", "Abdômen"],
+      ],
+    },
+    {
+      id: 'f_abc_glutes_quads_upper',
+      type: 'ABC',
+      gender: 'feminino',
+      groups: [
+        ["Glúteos", "Posterior de Coxa", "Abdômen"],
+        ["Quadríceps", "Adutores", "Panturrilhas", "Abdômen"],
+        ["Peitorais", "Dorsal", "Deltoides", "Bíceps", "Tríceps"],
+      ],
+    },
+    {
+      id: 'f_abc_lower_glutes_upper',
+      type: 'ABC',
+      gender: 'feminino',
+      groups: [
+        ["Quadríceps", "Posterior de Coxa", "Adutores", "Panturrilhas", "Abdômen"],
+        ["Glúteos", "Posterior de Coxa", "Abdômen"],
+        ["Peitorais", "Dorsal", "Deltoides", "Bíceps", "Tríceps", "Costas Superior"],
+      ],
+    },
   ],
   4: [
+    // ── Masculino ────────────────────────────────────────────────────────────
     {
       id: 'abcd_sinergista',
       type: 'ABCD',
+      gender: 'masculino',
       groups: [
         ["Peitorais", "Tríceps"],
         ["Dorsal", "Costas Superior", "Bíceps"],
@@ -418,6 +498,7 @@ const SPLIT_VARIANTS: Record<number, SplitVariant[]> = {
     {
       id: 'abcd_antagonista',
       type: 'ABCD',
+      gender: 'masculino',
       groups: [
         ["Peitorais", "Dorsal"],
         ["Quadríceps", "Panturrilhas"],
@@ -428,6 +509,7 @@ const SPLIT_VARIANTS: Record<number, SplitVariant[]> = {
     {
       id: 'abcd_upper_lower',
       type: 'ABCD',
+      gender: 'masculino',
       groups: [
         ["Peitorais", "Dorsal", "Deltoides"],
         ["Quadríceps", "Panturrilhas"],
@@ -435,11 +517,47 @@ const SPLIT_VARIANTS: Record<number, SplitVariant[]> = {
         ["Posterior de Coxa", "Glúteos", "Abdômen"],
       ],
     },
+    // ── Feminino ─────────────────────────────────────────────────────────────
+    {
+      id: 'f_abcd_lower2_upper1_glutes1',
+      type: 'ABCD',
+      gender: 'feminino',
+      groups: [
+        ["Quadríceps", "Adutores", "Panturrilhas", "Abdômen"],
+        ["Glúteos", "Posterior de Coxa"],
+        ["Peitorais", "Dorsal", "Deltoides", "Bíceps", "Tríceps"],
+        ["Glúteos", "Adutores", "Posterior de Coxa", "Abdômen"],
+      ],
+    },
+    {
+      id: 'f_abcd_lower_push_lower_pull',
+      type: 'ABCD',
+      gender: 'feminino',
+      groups: [
+        ["Glúteos", "Posterior de Coxa"],
+        ["Peitorais", "Deltoides", "Tríceps", "Abdômen"],
+        ["Quadríceps", "Adutores", "Panturrilhas"],
+        ["Dorsal", "Costas Superior", "Trapézio", "Bíceps", "Glúteos"],
+      ],
+    },
+    {
+      id: 'f_abcd_lower2_full_chain',
+      type: 'ABCD',
+      gender: 'feminino',
+      groups: [
+        ["Quadríceps", "Adutores", "Panturrilhas", "Abdômen"],
+        ["Glúteos", "Posterior de Coxa"],
+        ["Peitorais", "Dorsal", "Deltoides", "Bíceps", "Tríceps"],
+        ["Glúteos", "Posterior de Coxa", "Trapézio", "Dorsal", "Costas Superior"],
+      ],
+    },
   ],
   5: [
+    // ── Masculino ────────────────────────────────────────────────────────────
     {
       id: 'abcde_classico',
       type: 'ABCDE',
+      gender: 'masculino',
       groups: [
         ["Peitorais"],
         ["Dorsal", "Costas Superior"],
@@ -451,6 +569,7 @@ const SPLIT_VARIANTS: Record<number, SplitVariant[]> = {
     {
       id: 'abcde_arnold',
       type: 'ABCDE',
+      gender: 'masculino',
       groups: [
         ["Peitorais", "Dorsal"],
         ["Deltoides", "Bíceps", "Tríceps"],
@@ -462,6 +581,7 @@ const SPLIT_VARIANTS: Record<number, SplitVariant[]> = {
     {
       id: 'abcde_ppl_plus',
       type: 'ABCDE',
+      gender: 'masculino',
       groups: [
         ["Peitorais", "Deltoides", "Tríceps"],
         ["Dorsal", "Costas Superior", "Trapézio", "Bíceps"],
@@ -470,11 +590,38 @@ const SPLIT_VARIANTS: Record<number, SplitVariant[]> = {
         ["Bíceps", "Tríceps", "Abdômen"],
       ],
     },
+    // ── Feminino ─────────────────────────────────────────────────────────────
+    {
+      id: 'f_abcde_lower3_upper2',
+      type: 'ABCDE',
+      gender: 'feminino',
+      groups: [
+        ["Glúteos", "Posterior de Coxa"],
+        ["Quadríceps", "Adutores", "Panturrilhas"],
+        ["Peitorais", "Deltoides", "Tríceps", "Abdômen"],
+        ["Glúteos", "Adutores", "Posterior de Coxa"],
+        ["Dorsal", "Costas Superior", "Trapézio", "Bíceps"],
+      ],
+    },
+    {
+      id: 'f_abcde_glutes_quads_full',
+      type: 'ABCDE',
+      gender: 'feminino',
+      groups: [
+        ["Glúteos", "Posterior de Coxa"],
+        ["Quadríceps", "Adutores", "Panturrilhas", "Abdômen"],
+        ["Peitorais", "Dorsal", "Deltoides", "Bíceps", "Tríceps"],
+        ["Glúteos", "Posterior de Coxa", "Dorsal", "Costas Superior"],
+        ["Peitorais", "Deltoides", "Bíceps", "Tríceps", "Abdômen"],
+      ],
+    },
   ],
   6: [
+    // ── Masculino ────────────────────────────────────────────────────────────
     {
       id: 'ppl_x2_classico',
       type: 'Push/Pull/Legs x2',
+      gender: 'masculino',
       groups: [
         ["Peitorais", "Deltoides", "Tríceps"],
         ["Dorsal", "Costas Superior", "Trapézio", "Bíceps"],
@@ -487,6 +634,7 @@ const SPLIT_VARIANTS: Record<number, SplitVariant[]> = {
     {
       id: 'ppl_x2_antagonista',
       type: 'Push/Pull/Legs x2',
+      gender: 'masculino',
       groups: [
         ["Peitorais", "Dorsal"],
         ["Quadríceps", "Panturrilhas"],
@@ -499,6 +647,7 @@ const SPLIT_VARIANTS: Record<number, SplitVariant[]> = {
     {
       id: 'bro_split_plus',
       type: 'Bro Split+',
+      gender: 'masculino',
       groups: [
         ["Peitorais"],
         ["Dorsal", "Costas Superior"],
@@ -508,13 +657,41 @@ const SPLIT_VARIANTS: Record<number, SplitVariant[]> = {
         ["Posterior de Coxa", "Glúteos", "Abdômen"],
       ],
     },
+    // ── Feminino ─────────────────────────────────────────────────────────────
+    {
+      id: 'f_abcdef_3lower_2upper_1glutes',
+      type: 'ABCDEF',
+      gender: 'feminino',
+      groups: [
+        ["Quadríceps", "Adutores", "Panturrilhas"],
+        ["Glúteos", "Posterior de Coxa"],
+        ["Peitorais", "Deltoides", "Tríceps", "Abdômen"],
+        ["Quadríceps", "Glúteos", "Posterior de Coxa", "Adutores"],
+        ["Dorsal", "Costas Superior", "Trapézio", "Bíceps"],
+        ["Glúteos", "Adutores", "Abdômen"],
+      ],
+    },
+    {
+      id: 'f_abcdef_chain_split',
+      type: 'ABCDEF',
+      gender: 'feminino',
+      groups: [
+        ["Glúteos", "Posterior de Coxa"],
+        ["Quadríceps", "Adutores", "Panturrilhas"],
+        ["Peitorais", "Deltoides", "Tríceps"],
+        ["Glúteos", "Adutores", "Posterior de Coxa"],
+        ["Dorsal", "Costas Superior", "Trapézio", "Bíceps", "Abdômen"],
+        ["Quadríceps", "Panturrilhas", "Glúteos"],
+      ],
+    },
   ],
 };
 
-/** Override especial para Quartel com 2 dias — evita split de braço/perna quando inventário é restrito. */
+/** Override especial para Quartel com 2 dias — evita split de braço/perna quando inventário é restrito. Neutro por gênero (full-body). */
 const QUARTEL_2DAY_VARIANT: SplitVariant = {
   id: 'ab_quartel_full',
   type: 'AB Full Body',
+  gender: 'masculino',
   groups: [
     ["Peitorais", "Dorsal", "Quadríceps", "Deltoides", "Tríceps", "Abdômen"],
     ["Peitorais", "Dorsal", "Posterior de Coxa", "Deltoides", "Bíceps", "Glúteos"],
@@ -523,22 +700,27 @@ const QUARTEL_2DAY_VARIANT: SplitVariant = {
 
 /**
  * Seleciona a próxima variante de split para um dado número de dias.
- * Round-robin determinístico: sempre avança para a próxima da lista.
- * Se não houver histórico, retorna a primeira (comportamento pré-periodização).
+ * Round-robin determinístico dentro do pool de gênero do usuário.
+ * Quartel 2-dias usa variante fixa (neutro por gênero).
+ * 1-dia full-body é caso especial (neutro).
  */
 function selectNextVariant(
   days: number,
   locationType: LocationType,
+  gender: 'masculino' | 'feminino',
   previousVariantId?: string,
 ): SplitVariant {
-  const variants = (locationType === 'quartel' && days === 2)
-    ? [QUARTEL_2DAY_VARIANT]
-    : (SPLIT_VARIANTS[days] ?? SPLIT_VARIANTS[3]);
+  if (locationType === 'quartel' && days === 2) return QUARTEL_2DAY_VARIANT;
+  if (days === 1) return SPLIT_VARIANTS[1][0];
 
-  if (!previousVariantId || variants.length === 1) return variants[0];
-  const idx = variants.findIndex((v) => v.id === previousVariantId);
-  if (idx === -1) return variants[0];
-  return variants[(idx + 1) % variants.length];
+  const allVariants = SPLIT_VARIANTS[days] ?? SPLIT_VARIANTS[3];
+  const genderPool = allVariants.filter((v) => v.gender === gender);
+  const pool = genderPool.length > 0 ? genderPool : allVariants;
+
+  if (!previousVariantId || pool.length === 1) return pool[0];
+  const idx = pool.findIndex((v) => v.id === previousVariantId);
+  if (idx === -1) return pool[0];
+  return pool[(idx + 1) % pool.length];
 }
 
 /**
@@ -815,7 +997,7 @@ export function generateWorkout(
 ): GenerateWorkoutResult {
   const rawDays = daysAvailable ?? profile.days_per_week;
   const days = Math.max(1, Math.min(6, rawDays));
-  const split = selectNextVariant(days, locationType, previousCycle?.splitVariantId);
+  const split = selectNextVariant(days, locationType, profile.gender, previousCycle?.splitVariantId);
   const cyclePhase = nextCyclePhase(previousCycle?.cyclePhase);
 
   const { sets: baseSets, reps: baseReps } = getSetsReps(profile.goal, profile.level);
