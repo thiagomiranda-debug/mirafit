@@ -134,42 +134,63 @@ function getCanonicalMuscle(rawTarget: unknown, exName: string = ""): string {
   const clean = raw.toString().trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
   const map: Record<string, string> = {
+    // Peitorais
     "peito": "peitoral", "peitorais": "peitoral", "pectorals": "peitoral", "pectoral": "peitoral", "chest": "peitoral",
+    // Dorsal (lats) — separado de Costas Superior
+    "costas": "dorsal", "dorsais": "dorsal", "dorsal": "dorsal", "lats": "dorsal", "lat": "dorsal",
+    // Costas Superior (upper back) — grupo DISTINTO do dorsal
+    "costas superior": "costas_superior", "upper_back": "costas_superior", "upper back": "costas_superior",
+    // Ombros
     "ombro": "ombro", "ombros": "ombro", "deltoides": "ombro", "deltoid": "ombro", "delts": "ombro", "deltoids": "ombro", "shoulders": "ombro", "shoulder": "ombro",
-    "costas": "dorsal", "dorsais": "dorsal", "dorsal": "dorsal", "lats": "dorsal", "lat": "dorsal", "back": "dorsal",
-    "perna": "quadriceps", "pernas": "quadriceps", "quadriceps": "quadriceps", "quads": "quadriceps", "quad": "quadriceps", "legs": "quadriceps", "leg": "quadriceps",
-    "gluteo": "gluteo", "gluteos": "gluteo", "glutes": "gluteo", "glute": "gluteo",
-    "triceps": "triceps", "tricep": "triceps",
-    "biceps": "biceps", "bicep": "biceps",
-    "panturrilha": "panturrilha", "panturrilhas": "panturrilha", "calves": "panturrilha", "calf": "panturrilha",
-    "abdomen": "abdomen", "abs": "abdomen", "core": "abdomen",
+    // Trapézio
     "trapezio": "trapezio", "traps": "trapezio", "trap": "trapezio",
-    "costas superior": "dorsal", "upper_back": "dorsal", "upper back": "dorsal",
-    "posterior de coxa": "gluteo", "hamstrings": "gluteo", "hamstring": "gluteo"
+    // Quadríceps
+    "perna": "quadriceps", "pernas": "quadriceps", "quadriceps": "quadriceps", "quads": "quadriceps", "quad": "quadriceps", "legs": "quadriceps", "leg": "quadriceps",
+    // Posterior de Coxa (hamstrings) — grupo DISTINTO dos glúteos
+    "posterior de coxa": "posterior", "hamstrings": "posterior", "hamstring": "posterior",
+    // Glúteos
+    "gluteo": "gluteo", "gluteos": "gluteo", "glutes": "gluteo", "glute": "gluteo",
+    // Panturrilhas
+    "panturrilha": "panturrilha", "panturrilhas": "panturrilha", "calves": "panturrilha", "calf": "panturrilha",
+    // Bíceps / Tríceps
+    "biceps": "biceps", "bicep": "biceps",
+    "triceps": "triceps", "tricep": "triceps",
+    // Abdômen
+    "abdomen": "abdomen", "abs": "abdomen", "core": "abdomen",
+    // Adutores / Abdutores / Antebraços
+    "adutores": "adutores", "adductors": "adutores", "adductor": "adutores",
+    "abdutores": "abdutores", "abductors": "abdutores", "abductor": "abdutores",
+    "antebracos": "antebracos", "antebraco": "antebracos", "forearms": "antebracos", "forearm": "antebracos",
   };
 
   if (map[clean]) return map[clean];
 
   const name = exName.toLowerCase();
   if (/supino|bench press|fly|crucifixo|chest|peck deck/.test(name)) return "peitoral";
-  if (/desenvolvimento|shoulder press|lateral raise|elevação lateral|front raise|deltoid/.test(name)) return "ombro";
+  if (/desenvolvimento|shoulder press|lateral raise|front raise|deltoid/.test(name)) return "ombro";
   if (/agachamento|squat|leg press|extensora|leg extension|lunge|afundo/.test(name)) return "quadriceps";
-  if (/remada|row|puxada|pulldown|pull up|barra fixa|lat\b/.test(name)) return "dorsal";
+  if (/remada|row|face.?pull|reverse fly/.test(name)) return "costas_superior";
+  if (/puxada|pulldown|pull.?up|barra fixa|lat\b/.test(name)) return "dorsal";
   if (/rosca|curl|bicep/.test(name)) return "biceps";
-  if (/tricep|extensão|pushdown|kickback/.test(name)) return "triceps";
+  if (/tricep|extensao|pushdown/.test(name)) return "triceps";
   if (/panturrilha|calf|calves/.test(name)) return "panturrilha";
-  if (/stiff|deadlift|terra|hip thrust|elevação pélvica|glute/.test(name)) return "gluteo";
+  if (/stiff|deadlift|terra|\brdl\b|leg curl|femoral/.test(name)) return "posterior";
+  if (/hip thrust|glute bridge|gluteo/.test(name)) return "gluteo";
 
   return clean || "outros";
 }
 /** Músculos trabalhados por exercícios compostos (multi-articulares) */
-const COMPOUND_MUSCLES = new Set(["peitoral", "dorsal", "quadriceps", "gluteo", "ombro"]);
+const COMPOUND_MUSCLES = new Set([
+  "peitoral", "dorsal", "costas_superior", "quadriceps", "posterior", "gluteo", "ombro", "trapezio",
+]);
 
 /** Peso muscular para distribuição de volume dentro da rotina.
  * Músculos maiores recebem proporcionalmente mais exercícios. */
 const MUSCLE_WEIGHTS: Record<string, number> = {
-  "peitoral": 3, "dorsal": 3, "quadriceps": 3, "gluteo": 2, "ombro": 2,
-  "biceps": 1, "triceps": 1, "panturrilha": 1, "abdomen": 1, "trapezio": 1
+  "peitoral": 3, "dorsal": 3, "quadriceps": 3,
+  "posterior": 2, "gluteo": 2, "costas_superior": 2, "ombro": 2,
+  "biceps": 1, "triceps": 1, "panturrilha": 1, "abdomen": 1, "trapezio": 1,
+  "adutores": 1, "abdutores": 1, "antebracos": 1,
 };
 
 /** Boost adicional de peso muscular por gênero, somado ao MUSCLE_WEIGHTS base.
@@ -177,7 +198,9 @@ const MUSCLE_WEIGHTS: Record<string, number> = {
 const GENDER_MUSCLE_BOOSTS: Record<string, Record<string, number>> = {
   feminino: {
     "gluteo": 3,
+    "posterior": 2,
     "quadriceps": 1,
+    "adutores": 1,
   },
   masculino: {
     "peitoral": 2,
@@ -244,8 +267,21 @@ const TOP_EXERCISE_PATTERNS: Record<string, RegExp[]> = {
     /pull.?up/i,
     /chin.?up/i,
     /lat.?pull.?down|pulldown/i,
-    /\brow\b/i,
     /pullover/i,
+  ],
+  "costas_superior": [
+    /bent.?over row|barbell row|seal row/i,
+    /\brow\b/i,
+    /face.?pull/i,
+    /reverse fly/i,
+  ],
+  "posterior": [
+    /deadlift/i,
+    /romanian|\brdl\b/i,
+    /stiff.?leg/i,
+    /good.?morning/i,
+    /\bleg curl\b|hamstring curl/i,
+    /glute.?ham/i,
   ],
   "trapezio": [
     /shrug/i,
@@ -805,14 +841,19 @@ const ROUTINE_LABELS = ["A", "B", "C", "D", "E", "F"];
 const MUSCLE_GROUP_NAMES: Record<string, string> = {
   "peitoral": "Peito",
   "dorsal": "Costas",
+  "costas_superior": "Costas",
   "ombro": "Ombros",
   "trapezio": "Trapézio",
   "quadriceps": "Pernas",
+  "posterior": "Pernas",
   "panturrilha": "Panturrilhas",
   "gluteo": "Glúteos",
   "biceps": "Bíceps",
   "triceps": "Tríceps",
   "abdomen": "Abdômen",
+  "adutores": "Adutores",
+  "abdutores": "Abdutores",
+  "antebracos": "Antebraços",
   "outros": "Outros",
 };
 
