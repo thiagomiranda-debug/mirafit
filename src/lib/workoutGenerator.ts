@@ -127,38 +127,71 @@ function resolveQuartelTokens(keys?: string[]): Set<string> {
  *
  * Fonte de verdade: MUSCLE_NAME_PT no ExerciseSearchModal.tsx (mesmos tokens).
  */
-const MUSCLE_NORMALIZER: Record<string, string> = {
-  // ── Inglês → PT-BR canônico (docs antigos no Firestore) ──────────────────
-  "pectorals":           "Peitorais",
-  "lats":                "Dorsal",
-  "delts":               "Deltoides",
-  "quads":               "Quadríceps",
-  "hamstrings":          "Posterior de Coxa",
-  "glutes":              "Glúteos",
-  "triceps":             "Tríceps",
-  "biceps":              "Bíceps",
-  "calves":              "Panturrilhas",
-  "abs":                 "Abdômen",
-  "upper_back":          "Costas Superior",
-  "traps":               "Trapézio",
-  "adductors":           "Adutores",
-  "abductors":           "Abdutores",
-  "forearms":            "Antebraços",
-  "cardiovascular_system": "Sistema Cardiovascular",
-  "levator_scapulae":    "Levantador da Escápula",
-  "serratus_anterior":   "Serrátil Anterior",
-  "spine":               "Coluna",
-  // ── Aliases PT-BR → canônico (split, focus_muscle, variações) ────────────
-  "Peitoral":            "Peitorais",
-  "Peito":               "Peitorais",
-  "Ombro":               "Deltoides",
-  "Ombros":              "Deltoides",
-  "Costas":              "Dorsal",
-  "Dorsais":             "Dorsal",
-  "Glúteo":              "Glúteos",
-  "Panturrilha":         "Panturrilhas",
+function normalizeMuscleName(m: string | undefined): string {
+  if (!m) return 'outros';
+  const clean = m.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  const map: Record<string, string> = {
+    "peito": "peitoral", "peitorais": "peitoral", "pectorals": "peitoral", "chest": "peitoral", "peitoral": "peitoral",
+    "ombro": "ombro", "ombros": "ombro", "deltoides": "ombro", "delts": "ombro", "deltoids": "ombro",
+    "costas": "dorsal", "dorsais": "dorsal", "dorsal": "dorsal", "lats": "dorsal", "back": "dorsal",
+    "perna": "quadriceps", "pernas": "quadriceps", "quadriceps": "quadriceps", "quads": "quadriceps",
+    "gluteo": "gluteo", "gluteos": "gluteo", "glutes": "gluteo",
+    "triceps": "triceps",
+    "biceps": "biceps",
+    "panturrilha": "panturrilha", "panturrilhas": "panturrilha", "calves": "panturrilha",
+    "abdomen": "abdomen", "abs": "abdomen",
+    "trapezio": "trapezio", "traps": "trapezio",
+    "posterior de coxa": "posterior de coxa", "posteriores": "posterior de coxa", "hamstrings": "posterior de coxa",
+    "costas superior": "costas superior", "upper back": "costas superior", "upper_back": "costas superior",
+    "adutores": "adutores", "adductors": "adutores",
+    "abdutores": "abdutores", "abductors": "abdutores",
+    "antebracos": "antebracos", "forearms": "antebracos",
+    "cardiovascular_system": "sistema cardiovascular", "cardiovascular system": "sistema cardiovascular",
+    "levantador da escapula": "levantador da escapula", "levator_scapulae": "levantador da escapula",
+    "serratil anterior": "serratil anterior", "serratus_anterior": "serratil anterior",
+    "coluna": "coluna", "spine": "coluna"
+  };
+
+  return map[clean] || clean;
+}
+
+const MUSCLE_LOOKUP_KEY: Record<string, string> = {
+  peitoral: "Peitorais",
+  dorsal: "Dorsal",
+  ombro: "Deltoides",
+  quadriceps: "Quadr\u00edceps",
+  "posterior de coxa": "Posterior de Coxa",
+  gluteo: "Gl\u00fateos",
+  triceps: "Tr\u00edceps",
+  biceps: "B\u00edceps",
+  panturrilha: "Panturrilhas",
+  abdomen: "Abd\u00f4men",
+  trapezio: "Trap\u00e9zio",
+  "costas superior": "Costas Superior",
+  adutores: "Adutores",
+  abdutores: "Abdutores",
+  antebracos: "Antebra\u00e7os",
 };
 
+function muscleLookupKey(m: string | undefined): string {
+  const normalized = normalizeMuscleName(m);
+  return MUSCLE_LOOKUP_KEY[normalized] || normalized;
+}
+
+function muscleWeight(m: string): number {
+  return MUSCLE_WEIGHTS[muscleLookupKey(m)] ?? MUSCLE_WEIGHTS[m] ?? 1;
+}
+
+function genderMuscleBoost(gender: string | undefined, m: string): number {
+  if (!gender) return 0;
+  const boosts = GENDER_MUSCLE_BOOSTS[gender] ?? {};
+  return boosts[muscleLookupKey(m)] ?? boosts[m] ?? 0;
+}
+
+function isCompoundMuscle(m: string | undefined): boolean {
+  return COMPOUND_MUSCLES.has(muscleLookupKey(m));
+}
 /** Músculos trabalhados por exercícios compostos (multi-articulares) */
 const COMPOUND_MUSCLES = new Set<string>([
   "Peitorais",
@@ -979,7 +1012,7 @@ function isCompoundExercise(ex: CatalogExercise): boolean {
   const name = ex.name || "";
   if (ISOLATION_NAME_RE.test(name)) return false;
   if (COMPOUND_NAME_RE.test(name)) return true;
-  return COMPOUND_MUSCLES.has(ex.muscle);
+  return isCompoundMuscle(ex.muscle);
 }
 
 /** Score de efetividade do exercício para o músculo-alvo.
@@ -999,19 +1032,21 @@ function scoreExercise(
   if (COMPOUND_NAME_RE.test(name)) score += 22;
   else if (ISOLATION_NAME_RE.test(name)) score += 6;
 
-  const patterns = TOP_EXERCISE_PATTERNS[muscle] || [];
+  const muscleKey = muscleLookupKey(muscle);
+  const normalizedMuscle = normalizeMuscleName(muscle);
+  const patterns = TOP_EXERCISE_PATTERNS[muscleKey] || TOP_EXERCISE_PATTERNS[muscle] || [];
   if (patterns.some((re) => re.test(name))) score += 40;
 
   // Viés por gênero: boost em exercícios prioritários por grupo muscular.
   if (profile.gender === "feminino") {
-    if (["Glúteos", "Posterior de Coxa", "Quadríceps", "Adutores"].includes(muscle)) {
+    if (["gluteo", "posterior de coxa", "quadriceps", "adutores"].includes(normalizedMuscle)) {
       if (/hip thrust|romanian|\brdl\b|bridge|kickback|bulgarian|\bsquat\b|\blunge\b|leg press/i.test(name)) {
         score += 15;
       }
     }
   }
   if (profile.gender === "masculino") {
-    if (["Peitorais", "Dorsal", "Deltoides"].includes(muscle)) {
+    if (["peitoral", "dorsal", "ombro"].includes(normalizedMuscle)) {
       if (/bench press|overhead press|military press|\brow\b|pull.?up|lat.?pull/i.test(name)) {
         score += 12;
       }
@@ -1069,10 +1104,9 @@ function allocateBudget(
   const result = new Map<string, number>();
   if (muscles.length === 0 || budget <= 0) return result;
 
-  const genderBoosts = gender ? (GENDER_MUSCLE_BOOSTS[gender] ?? {}) : {};
   const entries = muscles.map((m) => ({
     muscle: m,
-    weight: (MUSCLE_WEIGHTS[m] ?? 1) + (m === focusMuscle ? 2 : 0) + (genderBoosts[m] ?? 0),
+    weight: muscleWeight(m) + (m === focusMuscle ? 2 : 0) + genderMuscleBoost(gender, m),
   }));
 
   // CHANGE #2: Ordena por peso DECRESCENTE antes do baseline. Antes a
@@ -1096,7 +1130,7 @@ function allocateBudget(
     for (const e of sortedByWeight) {
       if (remaining <= 0) break;
       // teto: músculos grandes podem receber até 4, pequenos até 2
-      const cap = (MUSCLE_WEIGHTS[e.muscle] ?? 1) >= 2 ? 4 : 2;
+      const cap = muscleWeight(e.muscle) >= 2 ? 4 : 2;
       const cur = result.get(e.muscle) ?? 0;
       if (cur < cap) {
         result.set(e.muscle, cur + 1);
@@ -1113,7 +1147,7 @@ function allocateBudget(
 /** Chave de dedup por "padrão de movimento". Dois exercícios com o mesmo
  * equipamento + músculo alvo são considerados redundantes na mesma sessão. */
 function patternKey(ex: CatalogExercise): string {
-  return `${ex.muscle}|${(ex.equipment || "").toLowerCase()}`;
+  return `${normalizeMuscleName(ex.muscle)}|${(ex.equipment || "").toLowerCase()}`;
 }
 
 function shuffle<T>(arr: T[], rng: () => number = Math.random): T[] {
@@ -1140,7 +1174,7 @@ function mulberry32(seed: number): () => number {
 
 // Gera o nome da rotina baseado nos grupos musculares
 function getRoutineName(label: string, muscleGroups: string[]): string {
-  const uniqueNames = [...new Set(muscleGroups.map((m) => MUSCLE_GROUP_NAMES[m] || m))];
+  const uniqueNames = [...new Set(muscleGroups.map((m) => MUSCLE_GROUP_NAMES[muscleLookupKey(m)] || MUSCLE_GROUP_NAMES[m] || m))];
   return `${label} - ${uniqueNames.slice(0, 3).join(" e ")}`;
 }
 
@@ -1190,17 +1224,24 @@ export function generateWorkout(
     if (freeText.includes(kw)) effectiveRestrictionTags.add(tag);
   }
   const restrictionTagsList = Array.from(effectiveRestrictionTags);
+  const previousMuscleEquipmentHistory = previousCycle
+    ? Object.fromEntries(
+        Object.entries(previousCycle.muscleEquipmentHistory).map(([muscle, equipment]) => [
+          normalizeMuscleName(muscle),
+          equipment,
+        ])
+      )
+    : undefined;
 
   // Catálogo por músculo, já ordenado por score de efetividade (maior 1º)
   const byMuscle: Record<string, CatalogExercise[]> = {};
   for (const ex of filteredCatalog) {
-    let m = ex.muscle || 'Outros';
-    m = MUSCLE_NORMALIZER[m] || m;
+    const m = normalizeMuscleName(ex.muscle);
     if (!byMuscle[m]) byMuscle[m] = [];
     byMuscle[m].push(ex);
   }
   for (const m of Object.keys(byMuscle)) {
-    const prevEquip = previousCycle?.muscleEquipmentHistory[m];
+    const prevEquip = previousMuscleEquipmentHistory?.[m];
     byMuscle[m] = byMuscle[m]
       .map((ex) => ({ ex, s: scoreExercise(ex, m, profile, prevEquip, restrictionTagsList) }))
       .sort((a, b) => b.s - a.s)
@@ -1211,13 +1252,14 @@ export function generateWorkout(
     profile.focus_muscle && profile.focus_muscle !== "Sem foco específico"
       ? profile.focus_muscle
       : undefined;
+  const normalizedFocus = focusMuscle ? normalizeMuscleName(focusMuscle) : undefined;
 
   const routines: GeneratedRoutine[] = split.groups.map((muscleGroups, idx) => {
     const label = ROUTINE_LABELS[idx];
     // CHANGE #5: NÃO filtra músculos por restrição. A restrição vira penalidade
     // no scoreExercise (banimento de padrão = -1000). Se sobrar exercício
     // viável, ele aparece. Se não sobrar, o pool simplesmente fica vazio.
-    const safeMuscles = muscleGroups.map((m) => MUSCLE_NORMALIZER[m] || m);
+    const safeMuscles = muscleGroups.map(normalizeMuscleName);
 
     let remaining = maxExercises;
     const usedIds = new Set<string>();
@@ -1244,7 +1286,7 @@ export function generateWorkout(
     }
 
     // ── 2) Orçamento por músculo (distribuição balanceada) ───────────────
-    const allocation = allocateBudget(safeMuscles, remaining, focusMuscle, profile.gender);
+    const allocation = allocateBudget(safeMuscles, remaining, normalizedFocus, profile.gender);
     // Track de quanto cada músculo já consumiu — usado pra impor o cap em TODAS as fases
     const consumed = new Map<string, number>();
     for (const m of safeMuscles) consumed.set(m, 0);
@@ -1268,12 +1310,12 @@ export function generateWorkout(
     // Ordem de PROCESSAMENTO (controla quem ganha orçamento se acabar):
     // foco → grandes → pequenos. Independente da ordem final.
     const processingOrder = [...safeMuscles].sort((a, b) => {
-      if (a === focusMuscle) return -1;
-      if (b === focusMuscle) return 1;
-      const wa = MUSCLE_WEIGHTS[a] ?? 1;
-      const wb = MUSCLE_WEIGHTS[b] ?? 1;
+      if (a === normalizedFocus) return -1;
+      if (b === normalizedFocus) return 1;
+      const wa = muscleWeight(a);
+      const wb = muscleWeight(b);
       if (wa !== wb) return wb - wa;
-      return (COMPOUND_MUSCLES.has(a) ? 0 : 1) - (COMPOUND_MUSCLES.has(b) ? 0 : 1);
+      return (isCompoundMuscle(a) ? 0 : 1) - (isCompoundMuscle(b) ? 0 : 1);
     });
 
     for (const muscle of processingOrder) {
@@ -1311,7 +1353,7 @@ export function generateWorkout(
       const leftovers: { ex: CatalogExercise; muscle: string; s: number }[] = [];
       for (const m of safeMuscles) {
         if ((consumed.get(m) ?? 0) >= leftoverCap(m)) continue;
-        const prevEquip = previousCycle?.muscleEquipmentHistory[m];
+        const prevEquip = previousMuscleEquipmentHistory?.[m];
         for (const ex of byMuscle[m] || []) {
           if (usedIds.has(ex.id) || usedPatterns.has(patternKey(ex))) continue;
           leftovers.push({ ex, muscle: m, s: scoreExercise(ex, m, profile, prevEquip, restrictionTagsList) });
@@ -1357,10 +1399,10 @@ export function generateWorkout(
 
     // Embaralha ordem dos blocos, mas promove foco pro 1º (após cardio)
     const muscleOrder = shuffle([...byMuscleSelected.keys()], rng);
-    if (focusMuscle && muscleOrder.includes(focusMuscle)) {
-      const i = muscleOrder.indexOf(focusMuscle);
+    if (normalizedFocus && muscleOrder.includes(normalizedFocus)) {
+      const i = muscleOrder.indexOf(normalizedFocus);
       muscleOrder.splice(i, 1);
-      muscleOrder.unshift(focusMuscle);
+      muscleOrder.unshift(normalizedFocus);
     }
 
     const finalOrdered: GeneratedExercise[] = [...cardioItems];
