@@ -37,6 +37,7 @@ export interface LibraryExercise {
   id: string;
   name: string;
   target_muscle: string;
+  secondary_muscles?: string[];
   equipment: string;
   category: string;
   gif_url: string;

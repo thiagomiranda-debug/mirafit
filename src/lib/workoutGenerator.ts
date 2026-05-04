@@ -119,6 +119,24 @@ function resolveQuartelTokens(keys?: string[]): Set<string> {
   return tokens;
 }
 
+/** Normaliza aliases e formas variantes de nomes de grupos musculares para a
+ *  forma canônica usada no Firestore. Resolve o mismatch entre o que o Split
+ *  pede (ex: "Dorsal") e o que o banco armazena (ex: "Dorsais"). */
+const MUSCLE_NORMALIZER: Record<string, string> = {
+  "Peitoral": "Peitorais",
+  "Peito": "Peitorais",
+  "Ombro": "Deltoides",
+  "Ombros": "Deltoides",
+  "Costas": "Dorsais",
+  "Dorsal": "Dorsais",
+  "Glúteo": "Glúteos",
+  "Panturrilha": "Panturrilhas",
+  "Bíceps": "Bíceps",
+  "Tríceps": "Tríceps",
+  "Trapézio": "Trapézio",
+  "Abdômen": "Abdômen",
+};
+
 /** Músculos trabalhados por exercícios compostos (multi-articulares) */
 const COMPOUND_MUSCLES = new Set<string>([
   "Peitorais",
@@ -329,14 +347,14 @@ const ISOLATION_NAME_RE =
  *       que define onde aplicar a penalidade de variedade de equipamento.
  */
 const MOVEMENT_PATTERNS = {
-  knee_dominant: /\bsquat\b|leg press|leg extension|hack squat|\blunge\b|step.?up|bulgarian.*split/i,
-  hip_dominant: /deadlift|romanian|\brdl\b|stiff.?leg|hip thrust|good.?morning|glute bridge|\bleg curl\b|hamstring curl|cable.*pull.?through|kickback|glute.?ham/i,
-  overhead: /overhead press|shoulder press|military press|push.?press|arnold press|\bsnatch\b|\bjerk\b|handstand/i,
-  horizontal_press: /bench press|chest press|push.?up|\bdip\b|chest fly|dumbbell fly/i,
-  vertical_pull: /pull.?up|chin.?up|lat.?pull.?down|pulldown/i,
-  horizontal_pull: /\brow\b|face.?pull|reverse fly/i,
-  spinal_axial_load: /\bsquat\b|deadlift|good.?morning|overhead press|military press|rack pull|push.?press|front squat/i,
-  wrist_flexed_loaded: /barbell curl|\bcurl\b(?!.*incline)|wrist curl|reverse curl/i,
+  knee_dominant: /\bsquat\b|agachamento|leg press|leg extension|extensora|hack squat|\blunge\b|afundo|step.?up|bulgarian/i,
+  hip_dominant: /deadlift|levantamento terra|\brdl\b|stiff|hip thrust|elevação pélvica|good.?morning|glute bridge|\bleg curl\b|flexora|kickback/i,
+  overhead: /overhead press|shoulder press|desenvolvimento|military press|push.?press|arnold/i,
+  horizontal_press: /bench press|supino|chest press|push.?up|flexão|\bdip\b|mergulho|chest fly|crucifixo/i,
+  vertical_pull: /pull.?up|chin.?up|barra fixa|lat.?pull.?down|puxada/i,
+  horizontal_pull: /\brow\b|remada|face.?pull|reverse fly|crucifixo invertido/i,
+  spinal_axial_load: /\bsquat\b|agachamento|deadlift|levantamento terra|overhead press|desenvolvimento|military press|front squat/i,
+  wrist_flexed_loaded: /barbell curl|rosca|\bcurl\b(?!.*incline)|wrist curl/i,
 } as const;
 
 type MovementPattern = keyof typeof MOVEMENT_PATTERNS;
@@ -348,7 +366,7 @@ function exerciseHasPattern(ex: CatalogExercise, pattern: MovementPattern): bool
 /** Compostos primários: a "espinha dorsal" do treino — onde a progressão de
  *  carga acontece. Trocar estes por variedade mata o ganho de força. */
 const PRIMARY_COMPOUND_RE =
-  /(?:bench press|incline.*press|overhead press|military press|push.?press|\bsquat\b|front squat|hack squat|leg press|deadlift|romanian|\brdl\b|hip thrust|pull.?up|chin.?up|lat.?pull.?down|pulldown|bent.?over row|barbell row|seal row|t.?bar row)/i;
+  /(?:bench press|supino|overhead press|desenvolvimento|military press|push.?press|\bsquat\b|agachamento|hack|leg press|deadlift|levantamento terra|romanian|\brdl\b|stiff|hip thrust|elevação pélvica|pull.?up|chin.?up|barra fixa|lat.?pull.?down|puxada|bent.?over row|barbell row|remada)/i;
 
 function isPrimaryCompound(ex: CatalogExercise): boolean {
   return PRIMARY_COMPOUND_RE.test(ex.name || "");
@@ -1154,8 +1172,10 @@ export function generateWorkout(
   // Catálogo por músculo, já ordenado por score de efetividade (maior 1º)
   const byMuscle: Record<string, CatalogExercise[]> = {};
   for (const ex of filteredCatalog) {
-    if (!byMuscle[ex.muscle]) byMuscle[ex.muscle] = [];
-    byMuscle[ex.muscle].push(ex);
+    let m = ex.muscle || 'Outros';
+    m = MUSCLE_NORMALIZER[m] || m;
+    if (!byMuscle[m]) byMuscle[m] = [];
+    byMuscle[m].push(ex);
   }
   for (const m of Object.keys(byMuscle)) {
     const prevEquip = previousCycle?.muscleEquipmentHistory[m];
@@ -1175,7 +1195,7 @@ export function generateWorkout(
     // CHANGE #5: NÃO filtra músculos por restrição. A restrição vira penalidade
     // no scoreExercise (banimento de padrão = -1000). Se sobrar exercício
     // viável, ele aparece. Se não sobrar, o pool simplesmente fica vazio.
-    const safeMuscles = muscleGroups;
+    const safeMuscles = muscleGroups.map((m) => MUSCLE_NORMALIZER[m] || m);
 
     let remaining = maxExercises;
     const usedIds = new Set<string>();
