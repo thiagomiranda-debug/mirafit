@@ -119,22 +119,44 @@ function resolveQuartelTokens(keys?: string[]): Set<string> {
   return tokens;
 }
 
-/** Normaliza aliases e formas variantes de nomes de grupos musculares para a
- *  forma canônica usada no Firestore. Resolve o mismatch entre o que o Split
- *  pede (ex: "Dorsal") e o que o banco armazena (ex: "Dorsais"). */
+/**
+ * Normaliza o campo `target_muscle` do Firestore para a forma canônica PT-BR
+ * usada nos SPLIT_VARIANTS. Cobre dois casos:
+ *  (a) Docs seeded antes da tradução → campo ainda em inglês (ex: "pectorals")
+ *  (b) Aliases PT-BR que podem aparecer no split ou no focus_muscle do perfil
+ *
+ * Fonte de verdade: MUSCLE_NAME_PT no ExerciseSearchModal.tsx (mesmos tokens).
+ */
 const MUSCLE_NORMALIZER: Record<string, string> = {
-  "Peitoral": "Peitorais",
-  "Peito": "Peitorais",
-  "Ombro": "Deltoides",
-  "Ombros": "Deltoides",
-  "Costas": "Dorsais",
-  "Dorsal": "Dorsais",
-  "Glúteo": "Glúteos",
-  "Panturrilha": "Panturrilhas",
-  "Bíceps": "Bíceps",
-  "Tríceps": "Tríceps",
-  "Trapézio": "Trapézio",
-  "Abdômen": "Abdômen",
+  // ── Inglês → PT-BR canônico (docs antigos no Firestore) ──────────────────
+  "pectorals":           "Peitorais",
+  "lats":                "Dorsal",
+  "delts":               "Deltoides",
+  "quads":               "Quadríceps",
+  "hamstrings":          "Posterior de Coxa",
+  "glutes":              "Glúteos",
+  "triceps":             "Tríceps",
+  "biceps":              "Bíceps",
+  "calves":              "Panturrilhas",
+  "abs":                 "Abdômen",
+  "upper_back":          "Costas Superior",
+  "traps":               "Trapézio",
+  "adductors":           "Adutores",
+  "abductors":           "Abdutores",
+  "forearms":            "Antebraços",
+  "cardiovascular_system": "Sistema Cardiovascular",
+  "levator_scapulae":    "Levantador da Escápula",
+  "serratus_anterior":   "Serrátil Anterior",
+  "spine":               "Coluna",
+  // ── Aliases PT-BR → canônico (split, focus_muscle, variações) ────────────
+  "Peitoral":            "Peitorais",
+  "Peito":               "Peitorais",
+  "Ombro":               "Deltoides",
+  "Ombros":              "Deltoides",
+  "Costas":              "Dorsal",
+  "Dorsais":             "Dorsal",
+  "Glúteo":              "Glúteos",
+  "Panturrilha":         "Panturrilhas",
 };
 
 /** Músculos trabalhados por exercícios compostos (multi-articulares) */
