@@ -12,6 +12,7 @@ export interface CatalogExercise {
   id: string;
   name: string;
   muscle: string;
+  target_muscle?: unknown;
   equipment?: string;
 }
 
@@ -127,118 +128,63 @@ function resolveQuartelTokens(keys?: string[]): Set<string> {
  *
  * Fonte de verdade: MUSCLE_NAME_PT no ExerciseSearchModal.tsx (mesmos tokens).
  */
-function normalizeMuscleName(m: string | undefined): string {
-  if (!m) return 'outros';
-  const clean = m.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+function getCanonicalMuscle(rawTarget: unknown, exName: string = ""): string {
+  let raw = rawTarget || "";
+  if (Array.isArray(raw)) raw = raw[0] ?? "";
+  const clean = raw.toString().trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
   const map: Record<string, string> = {
-    "peito": "peitoral", "peitorais": "peitoral", "pectorals": "peitoral", "chest": "peitoral", "peitoral": "peitoral",
-    "ombro": "ombro", "ombros": "ombro", "deltoides": "ombro", "delts": "ombro", "deltoids": "ombro",
-    "costas": "dorsal", "dorsais": "dorsal", "dorsal": "dorsal", "lats": "dorsal", "back": "dorsal",
-    "perna": "quadriceps", "pernas": "quadriceps", "quadriceps": "quadriceps", "quads": "quadriceps",
-    "gluteo": "gluteo", "gluteos": "gluteo", "glutes": "gluteo",
-    "triceps": "triceps",
-    "biceps": "biceps",
-    "panturrilha": "panturrilha", "panturrilhas": "panturrilha", "calves": "panturrilha",
-    "abdomen": "abdomen", "abs": "abdomen",
-    "trapezio": "trapezio", "traps": "trapezio",
-    "posterior de coxa": "posterior de coxa", "posteriores": "posterior de coxa", "hamstrings": "posterior de coxa",
-    "costas superior": "costas superior", "upper back": "costas superior", "upper_back": "costas superior",
-    "adutores": "adutores", "adductors": "adutores",
-    "abdutores": "abdutores", "abductors": "abdutores",
-    "antebracos": "antebracos", "forearms": "antebracos",
-    "cardiovascular_system": "sistema cardiovascular", "cardiovascular system": "sistema cardiovascular",
-    "levantador da escapula": "levantador da escapula", "levator_scapulae": "levantador da escapula",
-    "serratil anterior": "serratil anterior", "serratus_anterior": "serratil anterior",
-    "coluna": "coluna", "spine": "coluna"
+    "peito": "peitoral", "peitorais": "peitoral", "pectorals": "peitoral", "pectoral": "peitoral", "chest": "peitoral",
+    "ombro": "ombro", "ombros": "ombro", "deltoides": "ombro", "deltoid": "ombro", "delts": "ombro", "deltoids": "ombro", "shoulders": "ombro", "shoulder": "ombro",
+    "costas": "dorsal", "dorsais": "dorsal", "dorsal": "dorsal", "lats": "dorsal", "lat": "dorsal", "back": "dorsal",
+    "perna": "quadriceps", "pernas": "quadriceps", "quadriceps": "quadriceps", "quads": "quadriceps", "quad": "quadriceps", "legs": "quadriceps", "leg": "quadriceps",
+    "gluteo": "gluteo", "gluteos": "gluteo", "glutes": "gluteo", "glute": "gluteo",
+    "triceps": "triceps", "tricep": "triceps",
+    "biceps": "biceps", "bicep": "biceps",
+    "panturrilha": "panturrilha", "panturrilhas": "panturrilha", "calves": "panturrilha", "calf": "panturrilha",
+    "abdomen": "abdomen", "abs": "abdomen", "core": "abdomen",
+    "trapezio": "trapezio", "traps": "trapezio", "trap": "trapezio",
+    "costas superior": "dorsal", "upper_back": "dorsal", "upper back": "dorsal",
+    "posterior de coxa": "gluteo", "hamstrings": "gluteo", "hamstring": "gluteo"
   };
 
-  return map[clean] || clean;
-}
+  if (map[clean]) return map[clean];
 
-const MUSCLE_LOOKUP_KEY: Record<string, string> = {
-  peitoral: "Peitorais",
-  dorsal: "Dorsal",
-  ombro: "Deltoides",
-  quadriceps: "Quadr\u00edceps",
-  "posterior de coxa": "Posterior de Coxa",
-  gluteo: "Gl\u00fateos",
-  triceps: "Tr\u00edceps",
-  biceps: "B\u00edceps",
-  panturrilha: "Panturrilhas",
-  abdomen: "Abd\u00f4men",
-  trapezio: "Trap\u00e9zio",
-  "costas superior": "Costas Superior",
-  adutores: "Adutores",
-  abdutores: "Abdutores",
-  antebracos: "Antebra\u00e7os",
-};
+  const name = exName.toLowerCase();
+  if (/supino|bench press|fly|crucifixo|chest|peck deck/.test(name)) return "peitoral";
+  if (/desenvolvimento|shoulder press|lateral raise|elevação lateral|front raise|deltoid/.test(name)) return "ombro";
+  if (/agachamento|squat|leg press|extensora|leg extension|lunge|afundo/.test(name)) return "quadriceps";
+  if (/remada|row|puxada|pulldown|pull up|barra fixa|lat\b/.test(name)) return "dorsal";
+  if (/rosca|curl|bicep/.test(name)) return "biceps";
+  if (/tricep|extensão|pushdown|kickback/.test(name)) return "triceps";
+  if (/panturrilha|calf|calves/.test(name)) return "panturrilha";
+  if (/stiff|deadlift|terra|hip thrust|elevação pélvica|glute/.test(name)) return "gluteo";
 
-function muscleLookupKey(m: string | undefined): string {
-  const normalized = normalizeMuscleName(m);
-  return MUSCLE_LOOKUP_KEY[normalized] || normalized;
-}
-
-function muscleWeight(m: string): number {
-  return MUSCLE_WEIGHTS[muscleLookupKey(m)] ?? MUSCLE_WEIGHTS[m] ?? 1;
-}
-
-function genderMuscleBoost(gender: string | undefined, m: string): number {
-  if (!gender) return 0;
-  const boosts = GENDER_MUSCLE_BOOSTS[gender] ?? {};
-  return boosts[muscleLookupKey(m)] ?? boosts[m] ?? 0;
-}
-
-function isCompoundMuscle(m: string | undefined): boolean {
-  return COMPOUND_MUSCLES.has(muscleLookupKey(m));
+  return clean || "outros";
 }
 /** Músculos trabalhados por exercícios compostos (multi-articulares) */
-const COMPOUND_MUSCLES = new Set<string>([
-  "Peitorais",
-  "Dorsal",
-  "Costas Superior",
-  "Quadríceps",
-  "Posterior de Coxa",
-  "Deltoides",
-  "Glúteos",
-  "Trapézio",
-]);
+const COMPOUND_MUSCLES = new Set(["peitoral", "dorsal", "quadriceps", "gluteo", "ombro"]);
 
 /** Peso muscular para distribuição de volume dentro da rotina.
  * Músculos maiores recebem proporcionalmente mais exercícios. */
 const MUSCLE_WEIGHTS: Record<string, number> = {
-  "Peitorais": 3,
-  "Dorsal": 3,
-  "Quadríceps": 3,
-  "Posterior de Coxa": 2,
-  "Glúteos": 2,
-  "Costas Superior": 2,
-  "Deltoides": 2,
-  "Trapézio": 1,
-  "Bíceps": 1,
-  "Tríceps": 1,
-  "Abdômen": 1,
-  "Panturrilhas": 1,
-  "Adutores": 1,
-  "Abdutores": 1,
-  "Antebraços": 1,
+  "peitoral": 3, "dorsal": 3, "quadriceps": 3, "gluteo": 2, "ombro": 2,
+  "biceps": 1, "triceps": 1, "panturrilha": 1, "abdomen": 1, "trapezio": 1
 };
 
 /** Boost adicional de peso muscular por gênero, somado ao MUSCLE_WEIGHTS base.
  * Mulheres recebem mais volume em inferiores/glúteos; homens em superiores. */
 const GENDER_MUSCLE_BOOSTS: Record<string, Record<string, number>> = {
   feminino: {
-    "Glúteos": 3,
-    "Posterior de Coxa": 2,
-    "Quadríceps": 1,
-    "Adutores": 1,
+    "gluteo": 3,
+    "quadriceps": 1,
   },
   masculino: {
-    "Peitorais": 2,
-    "Dorsal": 2,
-    "Deltoides": 1,
-    "Bíceps": 1,
-    "Tríceps": 1,
+    "peitoral": 2,
+    "dorsal": 2,
+    "ombro": 1,
+    "biceps": 1,
+    "triceps": 1,
   },
 };
 
@@ -284,7 +230,7 @@ export const CARDIO_EQUIPMENTS = new Set<string>([
  * ganham um boost grande no score.
  */
 const TOP_EXERCISE_PATTERNS: Record<string, RegExp[]> = {
-  "Peitorais": [
+  "peitoral": [
     /bench press/i,
     /incline.*(press|bench)/i,
     /decline.*(press|bench)/i,
@@ -294,26 +240,20 @@ const TOP_EXERCISE_PATTERNS: Record<string, RegExp[]> = {
     /\bdip\b/i,
     /cable crossover/i,
   ],
-  "Dorsal": [
+  "dorsal": [
     /pull.?up/i,
     /chin.?up/i,
     /lat.?pull.?down|pulldown/i,
     /\brow\b/i,
     /pullover/i,
   ],
-  "Costas Superior": [
-    /bent.?over row|barbell row|seal row/i,
-    /\brow\b/i,
-    /face.?pull/i,
-    /reverse fly/i,
-  ],
-  "Trapézio": [
+  "trapezio": [
     /shrug/i,
     /upright.?row/i,
     /farmer/i,
     /rack pull/i,
   ],
-  "Quadríceps": [
+  "quadriceps": [
     /\bsquat\b/i,
     /leg press/i,
     /front squat/i,
@@ -323,15 +263,7 @@ const TOP_EXERCISE_PATTERNS: Record<string, RegExp[]> = {
     /hack squat/i,
     /step.?up/i,
   ],
-  "Posterior de Coxa": [
-    /deadlift/i,
-    /romanian|\brdl\b/i,
-    /stiff.?leg/i,
-    /good.?morning/i,
-    /\bleg curl\b|hamstring curl/i,
-    /glute.?ham/i,
-  ],
-  "Glúteos": [
+  "gluteo": [
     /hip thrust/i,
     /glute bridge/i,
     /romanian|\brdl\b/i,
@@ -340,7 +272,7 @@ const TOP_EXERCISE_PATTERNS: Record<string, RegExp[]> = {
     /kickback/i,
     /\bsquat\b/i,
   ],
-  "Deltoides": [
+  "ombro": [
     /overhead press|shoulder press/i,
     /military press/i,
     /push.?press/i,
@@ -350,7 +282,7 @@ const TOP_EXERCISE_PATTERNS: Record<string, RegExp[]> = {
     /rear delt/i,
     /upright.?row/i,
   ],
-  "Bíceps": [
+  "biceps": [
     /barbell curl/i,
     /dumbbell curl/i,
     /hammer curl/i,
@@ -358,7 +290,7 @@ const TOP_EXERCISE_PATTERNS: Record<string, RegExp[]> = {
     /incline.*curl/i,
     /chin.?up/i,
   ],
-  "Tríceps": [
+  "triceps": [
     /close.?grip.*(press|bench)/i,
     /skull.?crusher|lying triceps/i,
     /triceps.*extension|french press/i,
@@ -366,7 +298,7 @@ const TOP_EXERCISE_PATTERNS: Record<string, RegExp[]> = {
     /\bdip\b/i,
     /overhead.*triceps/i,
   ],
-  "Abdômen": [
+  "abdomen": [
     /plank/i,
     /crunch/i,
     /leg raise/i,
@@ -376,15 +308,10 @@ const TOP_EXERCISE_PATTERNS: Record<string, RegExp[]> = {
     /hollow/i,
     /\bsit.?up\b/i,
   ],
-  "Panturrilhas": [
+  "panturrilha": [
     /calf raise/i,
     /calf press/i,
     /donkey calf/i,
-  ],
-  "Antebraços": [
-    /wrist curl/i,
-    /reverse curl/i,
-    /farmer/i,
   ],
 };
 
@@ -876,18 +803,17 @@ const ROUTINE_LABELS = ["A", "B", "C", "D", "E", "F"];
 
 // Nomes amigáveis para grupos musculares
 const MUSCLE_GROUP_NAMES: Record<string, string> = {
-  "Peitorais": "Peito",
-  "Dorsal": "Costas",
-  "Costas Superior": "Costas",
-  "Deltoides": "Ombros",
-  "Trapézio": "Trapézio",
-  "Quadríceps": "Pernas",
-  "Posterior de Coxa": "Pernas",
-  "Panturrilhas": "Panturrilhas",
-  "Glúteos": "Glúteos",
-  "Bíceps": "Bíceps",
-  "Tríceps": "Tríceps",
-  "Abdômen": "Abdômen",
+  "peitoral": "Peito",
+  "dorsal": "Costas",
+  "ombro": "Ombros",
+  "trapezio": "Trapézio",
+  "quadriceps": "Pernas",
+  "panturrilha": "Panturrilhas",
+  "gluteo": "Glúteos",
+  "biceps": "Bíceps",
+  "triceps": "Tríceps",
+  "abdomen": "Abdômen",
+  "outros": "Outros",
 };
 
 /** Base sets/reps por objetivo e nível. Valores são ajustados depois por
@@ -1012,7 +938,7 @@ function isCompoundExercise(ex: CatalogExercise): boolean {
   const name = ex.name || "";
   if (ISOLATION_NAME_RE.test(name)) return false;
   if (COMPOUND_NAME_RE.test(name)) return true;
-  return isCompoundMuscle(ex.muscle);
+  return COMPOUND_MUSCLES.has(getCanonicalMuscle(ex.target_muscle ?? ex.muscle, ex.name));
 }
 
 /** Score de efetividade do exercício para o músculo-alvo.
@@ -1032,9 +958,8 @@ function scoreExercise(
   if (COMPOUND_NAME_RE.test(name)) score += 22;
   else if (ISOLATION_NAME_RE.test(name)) score += 6;
 
-  const muscleKey = muscleLookupKey(muscle);
-  const normalizedMuscle = normalizeMuscleName(muscle);
-  const patterns = TOP_EXERCISE_PATTERNS[muscleKey] || TOP_EXERCISE_PATTERNS[muscle] || [];
+  const normalizedMuscle = getCanonicalMuscle(muscle, name);
+  const patterns = TOP_EXERCISE_PATTERNS[normalizedMuscle] || [];
   if (patterns.some((re) => re.test(name))) score += 40;
 
   // Viés por gênero: boost em exercícios prioritários por grupo muscular.
@@ -1106,7 +1031,7 @@ function allocateBudget(
 
   const entries = muscles.map((m) => ({
     muscle: m,
-    weight: muscleWeight(m) + (m === focusMuscle ? 2 : 0) + genderMuscleBoost(gender, m),
+    weight: (MUSCLE_WEIGHTS[m] ?? 1) + (m === focusMuscle ? 2 : 0) + (gender ? (GENDER_MUSCLE_BOOSTS[gender]?.[m] ?? 0) : 0),
   }));
 
   // CHANGE #2: Ordena por peso DECRESCENTE antes do baseline. Antes a
@@ -1130,7 +1055,7 @@ function allocateBudget(
     for (const e of sortedByWeight) {
       if (remaining <= 0) break;
       // teto: músculos grandes podem receber até 4, pequenos até 2
-      const cap = muscleWeight(e.muscle) >= 2 ? 4 : 2;
+      const cap = (MUSCLE_WEIGHTS[e.muscle] ?? 1) >= 2 ? 4 : 2;
       const cur = result.get(e.muscle) ?? 0;
       if (cur < cap) {
         result.set(e.muscle, cur + 1);
@@ -1147,7 +1072,7 @@ function allocateBudget(
 /** Chave de dedup por "padrão de movimento". Dois exercícios com o mesmo
  * equipamento + músculo alvo são considerados redundantes na mesma sessão. */
 function patternKey(ex: CatalogExercise): string {
-  return `${normalizeMuscleName(ex.muscle)}|${(ex.equipment || "").toLowerCase()}`;
+  return `${getCanonicalMuscle(ex.target_muscle ?? ex.muscle, ex.name)}|${(ex.equipment || "").toLowerCase()}`;
 }
 
 function shuffle<T>(arr: T[], rng: () => number = Math.random): T[] {
@@ -1174,7 +1099,7 @@ function mulberry32(seed: number): () => number {
 
 // Gera o nome da rotina baseado nos grupos musculares
 function getRoutineName(label: string, muscleGroups: string[]): string {
-  const uniqueNames = [...new Set(muscleGroups.map((m) => MUSCLE_GROUP_NAMES[muscleLookupKey(m)] || MUSCLE_GROUP_NAMES[m] || m))];
+  const uniqueNames = [...new Set(muscleGroups.map((m) => MUSCLE_GROUP_NAMES[m] || m))];
   return `${label} - ${uniqueNames.slice(0, 3).join(" e ")}`;
 }
 
@@ -1227,7 +1152,7 @@ export function generateWorkout(
   const previousMuscleEquipmentHistory = previousCycle
     ? Object.fromEntries(
         Object.entries(previousCycle.muscleEquipmentHistory).map(([muscle, equipment]) => [
-          normalizeMuscleName(muscle),
+          getCanonicalMuscle(muscle, ""),
           equipment,
         ])
       )
@@ -1236,7 +1161,7 @@ export function generateWorkout(
   // Catálogo por músculo, já ordenado por score de efetividade (maior 1º)
   const byMuscle: Record<string, CatalogExercise[]> = {};
   for (const ex of filteredCatalog) {
-    const m = normalizeMuscleName(ex.muscle);
+    const m = getCanonicalMuscle(ex.target_muscle ?? ex.muscle, ex.name);
     if (!byMuscle[m]) byMuscle[m] = [];
     byMuscle[m].push(ex);
   }
@@ -1252,14 +1177,14 @@ export function generateWorkout(
     profile.focus_muscle && profile.focus_muscle !== "Sem foco específico"
       ? profile.focus_muscle
       : undefined;
-  const normalizedFocus = focusMuscle ? normalizeMuscleName(focusMuscle) : undefined;
+  const normalizedFocus = focusMuscle ? getCanonicalMuscle(focusMuscle, "") : undefined;
 
   const routines: GeneratedRoutine[] = split.groups.map((muscleGroups, idx) => {
     const label = ROUTINE_LABELS[idx];
     // CHANGE #5: NÃO filtra músculos por restrição. A restrição vira penalidade
     // no scoreExercise (banimento de padrão = -1000). Se sobrar exercício
     // viável, ele aparece. Se não sobrar, o pool simplesmente fica vazio.
-    const safeMuscles = muscleGroups.map(normalizeMuscleName);
+    const safeMuscles = muscleGroups.map((m) => getCanonicalMuscle(m, ""));
 
     let remaining = maxExercises;
     const usedIds = new Set<string>();
@@ -1312,10 +1237,10 @@ export function generateWorkout(
     const processingOrder = [...safeMuscles].sort((a, b) => {
       if (a === normalizedFocus) return -1;
       if (b === normalizedFocus) return 1;
-      const wa = muscleWeight(a);
-      const wb = muscleWeight(b);
+      const wa = MUSCLE_WEIGHTS[a] ?? 1;
+      const wb = MUSCLE_WEIGHTS[b] ?? 1;
       if (wa !== wb) return wb - wa;
-      return (isCompoundMuscle(a) ? 0 : 1) - (isCompoundMuscle(b) ? 0 : 1);
+      return (COMPOUND_MUSCLES.has(a) ? 0 : 1) - (COMPOUND_MUSCLES.has(b) ? 0 : 1);
     });
 
     for (const muscle of processingOrder) {
