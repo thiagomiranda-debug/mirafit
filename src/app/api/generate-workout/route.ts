@@ -90,6 +90,9 @@ export async function POST(req: NextRequest) {
           splitVariantId: prevVariantId,
           cyclePhase: prevPhase ?? 'acumulacao',
           muscleEquipmentHistory: history,
+          // CHANGE #7: data do ciclo anterior alimenta a janela de 4 semanas
+          // do mesociclo (nextCyclePhase). Sem isso a fase alterna a cada clique.
+          previousGeneratedAt: prevData.created_at?.toDate?.() ?? undefined,
         };
       }
     }

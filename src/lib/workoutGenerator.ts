@@ -31,6 +31,9 @@ export interface PreviousCycleContext {
   cyclePhase: CyclePhase;
   /** Map músculo → lista de equipamentos (tokens lowercase) usados no ciclo anterior. Cardio é filtrado. */
   muscleEquipmentHistory: Record<string, string[]>;
+  /** Data do último treino gerado. Usado pela Camada 2 (mesociclo) — a fase
+   *  só alterna se o ciclo anterior tem ≥ 4 semanas. Mantém periodização real. */
+  previousGeneratedAt?: Date;
 }
 
 export interface GenerateWorkoutResult {
@@ -319,16 +322,68 @@ const COMPOUND_NAME_RE =
 const ISOLATION_NAME_RE =
   /(?:curl|fly|raise|extension|kickback|pullover|crunch|shrug|calf|wrist|pushdown|push.?down|skull|triceps.*extension)/i;
 
-/** Mapeia tags estruturadas de restrição para músculos a evitar no split */
-const RESTRICTION_TO_MUSCLES: Record<RestrictionTag, string[]> = {
-  joelho: ["Quadríceps", "Panturrilhas"],
-  ombro: ["Deltoides"],
-  lombar: [],
-  cervical: ["Trapézio"],
-  punho: [],
-  cotovelo: ["Bíceps", "Tríceps"],
-  tornozelo: ["Panturrilhas"],
-  quadril: ["Glúteos", "Posterior de Coxa"],
+/**
+ * CHANGE #4/#5: Padrões de movimento — base para:
+ *   (a) restrições articulares que banem PADRÕES, não músculos inteiros;
+ *   (b) distinção entre exercício BASE (composto primário) e ACESSÓRIO,
+ *       que define onde aplicar a penalidade de variedade de equipamento.
+ */
+const MOVEMENT_PATTERNS = {
+  knee_dominant: /\bsquat\b|leg press|leg extension|hack squat|\blunge\b|step.?up|bulgarian.*split/i,
+  hip_dominant: /deadlift|romanian|\brdl\b|stiff.?leg|hip thrust|good.?morning|glute bridge|\bleg curl\b|hamstring curl|cable.*pull.?through|kickback|glute.?ham/i,
+  overhead: /overhead press|shoulder press|military press|push.?press|arnold press|\bsnatch\b|\bjerk\b|handstand/i,
+  horizontal_press: /bench press|chest press|push.?up|\bdip\b|chest fly|dumbbell fly/i,
+  vertical_pull: /pull.?up|chin.?up|lat.?pull.?down|pulldown/i,
+  horizontal_pull: /\brow\b|face.?pull|reverse fly/i,
+  spinal_axial_load: /\bsquat\b|deadlift|good.?morning|overhead press|military press|rack pull|push.?press|front squat/i,
+  wrist_flexed_loaded: /barbell curl|\bcurl\b(?!.*incline)|wrist curl|reverse curl/i,
+} as const;
+
+type MovementPattern = keyof typeof MOVEMENT_PATTERNS;
+
+function exerciseHasPattern(ex: CatalogExercise, pattern: MovementPattern): boolean {
+  return MOVEMENT_PATTERNS[pattern].test(ex.name || "");
+}
+
+/** Compostos primários: a "espinha dorsal" do treino — onde a progressão de
+ *  carga acontece. Trocar estes por variedade mata o ganho de força. */
+const PRIMARY_COMPOUND_RE =
+  /(?:bench press|incline.*press|overhead press|military press|push.?press|\bsquat\b|front squat|hack squat|leg press|deadlift|romanian|\brdl\b|hip thrust|pull.?up|chin.?up|lat.?pull.?down|pulldown|bent.?over row|barbell row|seal row|t.?bar row)/i;
+
+function isPrimaryCompound(ex: CatalogExercise): boolean {
+  return PRIMARY_COMPOUND_RE.test(ex.name || "");
+}
+
+function isAccessoryOrIsolation(ex: CatalogExercise): boolean {
+  return !isPrimaryCompound(ex);
+}
+
+/**
+ * CHANGE #5: Restrições banem PADRÕES DE MOVIMENTO, não músculos inteiros.
+ * "Joelho ruim" não tira o dia de perna — tira agachamento e empurra pra
+ * RDL/hip thrust/leg curl. Isso preserva volume e gluteo/posterior.
+ */
+const RESTRICTION_BAN_PATTERNS: Record<RestrictionTag, MovementPattern[]> = {
+  joelho:    ['knee_dominant'],
+  ombro:     ['overhead'],
+  lombar:    ['spinal_axial_load'],
+  cervical:  ['overhead'],
+  punho:     ['wrist_flexed_loaded'],
+  cotovelo:  [],
+  tornozelo: [],
+  quadril:   [],
+};
+
+/** Padrões a PROMOVER quando há restrição (substitui o que foi banido) */
+const RESTRICTION_PREFER_PATTERNS: Record<RestrictionTag, MovementPattern[]> = {
+  joelho:    ['hip_dominant'],
+  ombro:     ['horizontal_press', 'horizontal_pull'],
+  lombar:    ['horizontal_press', 'horizontal_pull'],
+  cervical:  ['horizontal_press', 'horizontal_pull'],
+  punho:     [],
+  cotovelo:  [],
+  tornozelo: [],
+  quadril:   ['knee_dominant'],
 };
 
 interface GeneratedExercise {
@@ -723,12 +778,23 @@ function selectNextVariant(
   return pool[(idx + 1) % pool.length];
 }
 
+const FOUR_WEEKS_MS = 4 * 7 * 24 * 60 * 60 * 1000;
+
 /**
  * Alterna a fase do mesociclo.
  * Primeira geração (sem histórico) começa em acumulacao.
+ *
+ * CHANGE #7: Mesociclo só alterna se o ciclo anterior tem ≥ 4 semanas.
+ * Antes alternava a cada clique no botão "gerar" — usuário curioso clica 3x
+ * em 5 minutos e perde toda a periodização. Agora a fase persiste até o
+ * tempo biológico mínimo de adaptação ser respeitado.
  */
-function nextCyclePhase(previous?: CyclePhase): CyclePhase {
+function nextCyclePhase(previous?: CyclePhase, previousGeneratedAt?: Date): CyclePhase {
   if (!previous) return 'acumulacao';
+  if (previousGeneratedAt) {
+    const ageMs = Date.now() - previousGeneratedAt.getTime();
+    if (ageMs < FOUR_WEEKS_MS) return previous;
+  }
   return previous === 'acumulacao' ? 'intensificacao' : 'acumulacao';
 }
 
@@ -773,16 +839,24 @@ function getSetsReps(goal: string, level: string): { sets: number; reps: string 
   return { sets: 3, reps: "10-12" };
 }
 
-/** Reps ajustadas pelo tipo do exercício: compostos com reps um pouco mais
- * baixas (carga mais alta), isoladores com reps mais altas. */
-function adjustReps(baseReps: string, isCompound: boolean): string {
+/**
+ * CHANGE #3: Em HIPERTROFIA (8-12), compostos genéricos PERMANECEM em 8-12.
+ * Antes a função baixava todo composto pra 6-10, e na intensificação caía
+ * pra 4-6 — faixa de força pura, não hipertrofia. Agora só compostos
+ * primários (`isPrimary=true`) na intensificação descem pra faixa de
+ * força-hipertrofia (6-8). Isoladores ganham reps a mais.
+ */
+function adjustReps(baseReps: string, isCompound: boolean, isPrimary: boolean): string {
   if (isCompound) {
-    if (baseReps === "8-12") return "6-10";
-    if (baseReps === "10-12") return "8-10";
+    // Hipertrofia/condicionamento: mantém faixa de hipertrofia mesmo em compostos
+    if (baseReps === "8-12") return "8-12";
+    if (baseReps === "10-12") return "8-12";
     if (baseReps === "12-15") return "10-12";
     if (baseReps === "15-20") return "12-15";
+    if (baseReps === "4-6" && !isPrimary) return "6-8"; // assistência em treino de força
     return baseReps;
   }
+  // Isoladores: faixas mais altas (foco em estímulo metabólico)
   if (baseReps === "4-6") return "8-10";
   if (baseReps === "6-10") return "10-12";
   if (baseReps === "8-12") return "10-15";
@@ -832,17 +906,22 @@ function shiftRepsDownSlight(reps: string): string {
 
 /**
  * Camada final que modula sets/reps de acordo com a fase do mesociclo.
- * Acumulação = baseline do goal (mais reps, mesmos sets).
- * Intensificação = +1 set em compostos e redução de reps (foco em força).
+ *
+ * CHANGE #3: Intensificação só baixa reps em compostos PRIMÁRIOS
+ * (agachamento, supino, levantamento). Compostos secundários e isoladores
+ * mantêm faixa de hipertrofia, e primários ganham +1 set. Preserva estímulo
+ * metabólico e adiciona estímulo neural — sem cair pra força pura.
  */
 function applyCyclePhase(
   sets: number,
   reps: string,
   isCompound: boolean,
+  isPrimary: boolean,
   phase: CyclePhase,
 ): { sets: number; reps: string } {
   if (phase === 'acumulacao') return { sets, reps };
-  if (isCompound) return { sets: sets + 1, reps: shiftRepsDown(reps) };
+  if (isPrimary) return { sets: sets + 1, reps: shiftRepsDown(reps) };
+  if (isCompound) return { sets, reps };
   return { sets, reps: shiftRepsDownSlight(reps) };
 }
 
@@ -871,6 +950,7 @@ function scoreExercise(
   muscle: string,
   profile: UserProfile,
   previousEquipmentForMuscle?: string[],
+  restrictionTags?: RestrictionTag[],
 ): number {
   const name = ex.name || "";
   const equip = (ex.equipment || "").toLowerCase();
@@ -910,10 +990,27 @@ function scoreExercise(
     if (/\bsquat\b|deadlift|clean|snatch|jump/i.test(name)) score -= 8;
   }
 
-  // Penalidade de equipamento repetido do ciclo anterior (motor de periodização)
+  // CHANGE #4: Penalidade de variedade de equipamento SÓ em acessórios.
+  // Compostos primários (supino, agachamento, levantamento) precisam
+  // repetir equipamento ciclo após ciclo pra haver progressão de carga
+  // mensurável. Variedade obrigatória vai nos isoladores/auxiliares.
   if (previousEquipmentForMuscle && previousEquipmentForMuscle.length > 0) {
-    if (!CARDIO_EQUIPMENTS.has(equip) && previousEquipmentForMuscle.includes(equip)) {
+    const isAccessory = isAccessoryOrIsolation(ex);
+    if (isAccessory && !CARDIO_EQUIPMENTS.has(equip) && previousEquipmentForMuscle.includes(equip)) {
       score -= 20;
+    }
+  }
+
+  // CHANGE #5: Aplica banimento/preferência de padrão de movimento por restrição.
+  // Banimento é HARD (-1000); preferência é boost suave (+10) pra não
+  // sequestrar o ranking dos exercícios "gold" (que dão +40).
+  const tags = restrictionTags ?? profile.medical_restriction_tags ?? [];
+  for (const tag of tags) {
+    for (const pat of RESTRICTION_BAN_PATTERNS[tag]) {
+      if (exerciseHasPattern(ex, pat)) score -= 1000;
+    }
+    for (const pat of RESTRICTION_PREFER_PATTERNS[tag]) {
+      if (exerciseHasPattern(ex, pat)) score += 10;
     }
   }
 
@@ -921,8 +1018,8 @@ function scoreExercise(
 }
 
 /** Distribui `budget` exercícios entre `muscles` respeitando pesos musculares
- * e adicionando boost para o músculo-foco. Garante mínimo 1 por músculo e
- * soma exatamente o orçamento. */
+ * e adicionando boost para o músculo-foco. Garante mínimo 1 por músculo
+ * (priorizando os mais pesados) e soma exatamente o orçamento. */
 function allocateBudget(
   muscles: string[],
   budget: number,
@@ -930,7 +1027,7 @@ function allocateBudget(
   gender?: string,
 ): Map<string, number> {
   const result = new Map<string, number>();
-  if (muscles.length === 0) return result;
+  if (muscles.length === 0 || budget <= 0) return result;
 
   const genderBoosts = gender ? (GENDER_MUSCLE_BOOSTS[gender] ?? {}) : {};
   const entries = muscles.map((m) => ({
@@ -938,19 +1035,25 @@ function allocateBudget(
     weight: (MUSCLE_WEIGHTS[m] ?? 1) + (m === focusMuscle ? 2 : 0) + (genderBoosts[m] ?? 0),
   }));
 
-  // Garante 1 por músculo quando cabe
-  const baseline = Math.min(muscles.length, budget);
+  // CHANGE #2: Ordena por peso DECRESCENTE antes do baseline. Antes a
+  // garantia de "1 por músculo" caminhava na ordem do array original do
+  // split — se o orçamento fosse menor que o nº de músculos, o foco (que
+  // costuma vir por último na lista do split) ficava com 0 exercícios.
+  // Agora prioridade vai pra peito/costas/perna/foco antes de tríceps/abs.
+  const sortedByWeight = [...entries].sort((a, b) => b.weight - a.weight);
+
   for (const e of entries) result.set(e.muscle, 0);
+
+  const baseline = Math.min(muscles.length, budget);
   for (let i = 0; i < baseline; i++) {
-    result.set(entries[i].muscle, 1);
+    result.set(sortedByWeight[i].muscle, 1);
   }
   let remaining = budget - baseline;
 
-  // Distribui resto proporcionalmente (ordem decrescente de peso)
-  const sorted = [...entries].sort((a, b) => b.weight - a.weight);
+  // Distribui resto proporcionalmente (mesma ordem decrescente de peso)
   while (remaining > 0) {
     let allocated = false;
-    for (const e of sorted) {
+    for (const e of sortedByWeight) {
       if (remaining <= 0) break;
       // teto: músculos grandes podem receber até 4, pequenos até 2
       const cap = (MUSCLE_WEIGHTS[e.muscle] ?? 1) >= 2 ? 4 : 2;
@@ -973,13 +1076,26 @@ function patternKey(ex: CatalogExercise): string {
   return `${ex.muscle}|${(ex.equipment || "").toLowerCase()}`;
 }
 
-function shuffle<T>(arr: T[]): T[] {
+function shuffle<T>(arr: T[], rng: () => number = Math.random): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+
+/** PRNG determinístico (Mulberry32) — usado pra testes de mesa quando seed
+ *  é fornecida em generateWorkout. Sem seed, geração usa Math.random. */
+function mulberry32(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 // Gera o nome da rotina baseado nos grupos musculares
@@ -994,11 +1110,18 @@ export function generateWorkout(
   locationType: LocationType = 'gym',
   daysAvailable?: number,
   previousCycle?: PreviousCycleContext,
+  /** CHANGE: seed opcional pra determinismo em testes de mesa.
+   *  Sem seed, geração usa Math.random (comportamento normal em produção). */
+  seed?: number,
 ): GenerateWorkoutResult {
   const rawDays = daysAvailable ?? profile.days_per_week;
   const days = Math.max(1, Math.min(6, rawDays));
   const split = selectNextVariant(days, locationType, profile.gender, previousCycle?.splitVariantId);
-  const cyclePhase = nextCyclePhase(previousCycle?.cyclePhase);
+  // CHANGE #7: passa data do ciclo anterior pra janela de 4 semanas
+  const cyclePhase = nextCyclePhase(previousCycle?.cyclePhase, previousCycle?.previousGeneratedAt);
+
+  // CHANGE: RNG determinístico quando seed é fornecida
+  const rng = seed !== undefined ? mulberry32(seed) : Math.random;
 
   const { sets: baseSets, reps: baseReps } = getSetsReps(profile.goal, profile.level);
   const maxExercises = getExercisesPerRoutine(profile.time_per_session, baseSets);
@@ -1009,25 +1132,10 @@ export function generateWorkout(
     ? catalog.filter((ex) => quartelTokens.has((ex.equipment || '').toLowerCase()))
     : catalog;
 
-  // Catálogo por músculo, já ordenado por score de efetividade (maior 1º)
-  const byMuscle: Record<string, CatalogExercise[]> = {};
-  for (const ex of filteredCatalog) {
-    if (!byMuscle[ex.muscle]) byMuscle[ex.muscle] = [];
-    byMuscle[ex.muscle].push(ex);
-  }
-  for (const m of Object.keys(byMuscle)) {
-    const prevEquip = previousCycle?.muscleEquipmentHistory[m];
-    byMuscle[m] = byMuscle[m]
-      .map((ex) => ({ ex, s: scoreExercise(ex, m, profile, prevEquip) }))
-      .sort((a, b) => b.s - a.s)
-      .map((x) => x.ex);
-  }
-
-  // Músculos a evitar (tags estruturadas + fallback texto livre)
-  const avoidSet = new Set<string>();
-  for (const tag of profile.medical_restriction_tags || []) {
-    for (const m of RESTRICTION_TO_MUSCLES[tag] || []) avoidSet.add(m);
-  }
+  // CHANGE #5: Tags estruturadas + tags inferidas do texto livre.
+  // Antes restrições removiam músculos do split; agora viram tags que o
+  // scoreExercise usa pra banir/preferir PADRÕES de movimento.
+  const effectiveRestrictionTags = new Set<RestrictionTag>(profile.medical_restriction_tags || []);
   const freeText = (profile.medical_restrictions || "").toLowerCase();
   const freeTextMap: [string, RestrictionTag][] = [
     ["joelho", "joelho"], ["knee", "joelho"],
@@ -1039,11 +1147,23 @@ export function generateWorkout(
     ["tornozelo", "tornozelo"], ["ankle", "tornozelo"],
   ];
   for (const [kw, tag] of freeTextMap) {
-    if (freeText.includes(kw)) {
-      for (const m of RESTRICTION_TO_MUSCLES[tag] || []) avoidSet.add(m);
-    }
+    if (freeText.includes(kw)) effectiveRestrictionTags.add(tag);
   }
-  const avoidMuscles = Array.from(avoidSet);
+  const restrictionTagsList = Array.from(effectiveRestrictionTags);
+
+  // Catálogo por músculo, já ordenado por score de efetividade (maior 1º)
+  const byMuscle: Record<string, CatalogExercise[]> = {};
+  for (const ex of filteredCatalog) {
+    if (!byMuscle[ex.muscle]) byMuscle[ex.muscle] = [];
+    byMuscle[ex.muscle].push(ex);
+  }
+  for (const m of Object.keys(byMuscle)) {
+    const prevEquip = previousCycle?.muscleEquipmentHistory[m];
+    byMuscle[m] = byMuscle[m]
+      .map((ex) => ({ ex, s: scoreExercise(ex, m, profile, prevEquip, restrictionTagsList) }))
+      .sort((a, b) => b.s - a.s)
+      .map((x) => x.ex);
+  }
 
   const focusMuscle =
     profile.focus_muscle && profile.focus_muscle !== "Sem foco específico"
@@ -1052,20 +1172,26 @@ export function generateWorkout(
 
   const routines: GeneratedRoutine[] = split.groups.map((muscleGroups, idx) => {
     const label = ROUTINE_LABELS[idx];
-    const safeMuscles = muscleGroups.filter((m) => !avoidMuscles.includes(m));
+    // CHANGE #5: NÃO filtra músculos por restrição. A restrição vira penalidade
+    // no scoreExercise (banimento de padrão = -1000). Se sobrar exercício
+    // viável, ele aparece. Se não sobrar, o pool simplesmente fica vazio.
+    const safeMuscles = muscleGroups;
 
     let remaining = maxExercises;
     const usedIds = new Set<string>();
     const usedPatterns = new Set<string>();
     const selected: GeneratedExercise[] = [];
+    // CHANGE #6: rastreia músculo de cada exercício pra ordenação final por bloco
+    const muscleOfExercise = new Map<string, string>();
 
     // ── 1) Aquecimento cardio (quando disponível) ────────────────────────
     const cardioPool = filteredCatalog.filter((ex) =>
       CARDIO_EQUIPMENTS.has((ex.equipment || '').toLowerCase())
     );
     if (cardioPool.length > 0 && remaining > 0) {
-      const cardio = shuffle(cardioPool)[0];
+      const cardio = shuffle(cardioPool, rng)[0];
       usedIds.add(cardio.id);
+      muscleOfExercise.set(cardio.id, '__cardio__');
       selected.push({
         exercise_id: cardio.id,
         sets: 1,
@@ -1077,19 +1203,35 @@ export function generateWorkout(
 
     // ── 2) Orçamento por músculo (distribuição balanceada) ───────────────
     const allocation = allocateBudget(safeMuscles, remaining, focusMuscle, profile.gender);
+    // Track de quanto cada músculo já consumiu — usado pra impor o cap em TODAS as fases
+    const consumed = new Map<string, number>();
+    for (const m of safeMuscles) consumed.set(m, 0);
 
-    // Ordem de processamento: foco primeiro, depois compostos grandes,
-    // depois auxiliares. Garante que compostos grandes entrem antes de
-    // esgotar o orçamento com isoladores.
+    // Helper local: adiciona exercício e atualiza contadores.
+    // CHANGE #3: passa isPrimary pra adjustReps e applyCyclePhase.
+    const addExercise = (ex: CatalogExercise, muscle: string) => {
+      const isCompound = isCompoundExercise(ex);
+      const isPrimary = isPrimaryCompound(ex);
+      const baseSetsAdj = adjustSets(baseSets, profile.months_training, profile.age_group, isCompound);
+      const baseRepsAdj = adjustReps(baseReps, isCompound, isPrimary);
+      const { sets, reps } = applyCyclePhase(baseSetsAdj, baseRepsAdj, isCompound, isPrimary, cyclePhase);
+      usedIds.add(ex.id);
+      usedPatterns.add(patternKey(ex));
+      muscleOfExercise.set(ex.id, muscle);
+      consumed.set(muscle, (consumed.get(muscle) ?? 0) + 1);
+      selected.push({ exercise_id: ex.id, sets, reps, order: selected.length });
+      remaining--;
+    };
+
+    // Ordem de PROCESSAMENTO (controla quem ganha orçamento se acabar):
+    // foco → grandes → pequenos. Independente da ordem final.
     const processingOrder = [...safeMuscles].sort((a, b) => {
       if (a === focusMuscle) return -1;
       if (b === focusMuscle) return 1;
       const wa = MUSCLE_WEIGHTS[a] ?? 1;
       const wb = MUSCLE_WEIGHTS[b] ?? 1;
       if (wa !== wb) return wb - wa;
-      const ca = COMPOUND_MUSCLES.has(a) ? 0 : 1;
-      const cb = COMPOUND_MUSCLES.has(b) ? 0 : 1;
-      return ca - cb;
+      return (COMPOUND_MUSCLES.has(a) ? 0 : 1) - (COMPOUND_MUSCLES.has(b) ? 0 : 1);
     });
 
     for (const muscle of processingOrder) {
@@ -1113,89 +1255,79 @@ export function generateWorkout(
 
       for (const ex of picked) {
         if (remaining <= 0) break;
-        const isCompound = isCompoundExercise(ex);
-        const baseSetsAdj = adjustSets(
-          baseSets,
-          profile.months_training,
-          profile.age_group,
-          isCompound,
-        );
-        const baseRepsAdj = adjustReps(baseReps, isCompound);
-        const { sets, reps } = applyCyclePhase(baseSetsAdj, baseRepsAdj, isCompound, cyclePhase);
-        usedIds.add(ex.id);
-        usedPatterns.add(patternKey(ex));
-        selected.push({
-          exercise_id: ex.id,
-          sets,
-          reps,
-          order: selected.length,
-        });
-        remaining--;
+        addExercise(ex, muscle);
       }
     }
 
-    // ── 3) Preenche sobras (se orçamento sobrou) com próximos melhores ───
+    // ── 3) Preenche sobras RESPEITANDO cap por músculo ───────────────────
+    // CHANGE #1 (vazamento real): Antes a fase de leftover ranqueava
+    // exercícios globalmente e enchia até `remaining`, podendo dar 5
+    // exercícios pro mesmo músculo. Agora cada músculo tem um cap absoluto
+    // (alocação inicial + 1 de tolerância) e o pool é filtrado por isso.
     if (remaining > 0) {
-      const leftovers: { ex: CatalogExercise; s: number }[] = [];
+      const leftoverCap = (m: string) => (allocation.get(m) ?? 0) + 1;
+      const leftovers: { ex: CatalogExercise; muscle: string; s: number }[] = [];
       for (const m of safeMuscles) {
+        if ((consumed.get(m) ?? 0) >= leftoverCap(m)) continue;
         const prevEquip = previousCycle?.muscleEquipmentHistory[m];
         for (const ex of byMuscle[m] || []) {
           if (usedIds.has(ex.id) || usedPatterns.has(patternKey(ex))) continue;
-          leftovers.push({ ex, s: scoreExercise(ex, m, profile, prevEquip) });
+          leftovers.push({ ex, muscle: m, s: scoreExercise(ex, m, profile, prevEquip, restrictionTagsList) });
         }
       }
       leftovers.sort((a, b) => b.s - a.s);
-      for (const { ex } of leftovers) {
+      for (const { ex, muscle } of leftovers) {
         if (remaining <= 0) break;
-        const isCompound = isCompoundExercise(ex);
-        const baseSetsAdj = adjustSets(
-          baseSets,
-          profile.months_training,
-          profile.age_group,
-          isCompound,
-        );
-        const baseRepsAdj = adjustReps(baseReps, isCompound);
-        const { sets, reps } = applyCyclePhase(baseSetsAdj, baseRepsAdj, isCompound, cyclePhase);
-        usedIds.add(ex.id);
-        usedPatterns.add(patternKey(ex));
-        selected.push({
-          exercise_id: ex.id,
-          sets,
-          reps,
-          order: selected.length,
-        });
-        remaining--;
+        if ((consumed.get(muscle) ?? 0) >= leftoverCap(muscle)) continue;
+        addExercise(ex, muscle);
       }
     }
 
-    // ── 4) Ordenação final: cardio → foco → compostos → auxiliares ───────
+    // ── 4) Ordenação final: cardio → blocos musculares EMBARALHADOS ──────
+    // CHANGE #6: Embaralha a ORDEM dos blocos musculares (a fadiga não cai
+    // sempre no mesmo músculo). Dentro de cada bloco mantém ordem fisiológica:
+    // composto primário → composto secundário → isolador. Foco continua
+    // promovido pro primeiro bloco não-cardio.
     const catMap = new Map(filteredCatalog.map((c) => [c.id, c]));
-    selected.sort((a, b) => {
-      const catA = catMap.get(a.exercise_id);
-      const catB = catMap.get(b.exercise_id);
-      if (!catA || !catB) return 0;
-      const equipA = (catA.equipment || '').toLowerCase();
-      const equipB = (catB.equipment || '').toLowerCase();
-      const muscleA = catA.muscle;
-      const muscleB = catB.muscle;
+    const cardioItems = selected.filter((e) => muscleOfExercise.get(e.exercise_id) === '__cardio__');
+    const nonCardio = selected.filter((e) => muscleOfExercise.get(e.exercise_id) !== '__cardio__');
 
-      const rankA =
-        (CARDIO_EQUIPMENTS.has(equipA) ? 0 : 1000) +
-        (focusMuscle && muscleA === focusMuscle ? 0 : 100) +
-        (isCompoundExercise(catA) ? 0 : 50) -
-        (EQUIPMENT_SCORE[equipA] ?? 0) * 0.1;
-      const rankB =
-        (CARDIO_EQUIPMENTS.has(equipB) ? 0 : 1000) +
-        (focusMuscle && muscleB === focusMuscle ? 0 : 100) +
-        (isCompoundExercise(catB) ? 0 : 50) -
-        (EQUIPMENT_SCORE[equipB] ?? 0) * 0.1;
-      return rankA - rankB;
-    });
-    selected.forEach((ex, i) => (ex.order = i));
+    // Agrupa por músculo
+    const byMuscleSelected = new Map<string, GeneratedExercise[]>();
+    for (const e of nonCardio) {
+      const m = muscleOfExercise.get(e.exercise_id) ?? '__unknown__';
+      if (!byMuscleSelected.has(m)) byMuscleSelected.set(m, []);
+      byMuscleSelected.get(m)!.push(e);
+    }
+
+    // Ordena dentro do bloco: primário → composto → isolador → score equip desc
+    for (const [, group] of byMuscleSelected) {
+      group.sort((a, b) => {
+        const ca = catMap.get(a.exercise_id)!;
+        const cb = catMap.get(b.exercise_id)!;
+        const rankA = isPrimaryCompound(ca) ? 0 : isCompoundExercise(ca) ? 1 : 2;
+        const rankB = isPrimaryCompound(cb) ? 0 : isCompoundExercise(cb) ? 1 : 2;
+        if (rankA !== rankB) return rankA - rankB;
+        return (EQUIPMENT_SCORE[(cb.equipment || '').toLowerCase()] ?? 0)
+             - (EQUIPMENT_SCORE[(ca.equipment || '').toLowerCase()] ?? 0);
+      });
+    }
+
+    // Embaralha ordem dos blocos, mas promove foco pro 1º (após cardio)
+    const muscleOrder = shuffle([...byMuscleSelected.keys()], rng);
+    if (focusMuscle && muscleOrder.includes(focusMuscle)) {
+      const i = muscleOrder.indexOf(focusMuscle);
+      muscleOrder.splice(i, 1);
+      muscleOrder.unshift(focusMuscle);
+    }
+
+    const finalOrdered: GeneratedExercise[] = [...cardioItems];
+    for (const m of muscleOrder) finalOrdered.push(...(byMuscleSelected.get(m) ?? []));
+    finalOrdered.forEach((ex, i) => (ex.order = i));
 
     return {
       name: getRoutineName(label, safeMuscles),
-      exercises: selected,
+      exercises: finalOrdered,
     };
   });
 
