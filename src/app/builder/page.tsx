@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { LibraryExercise, LocationType } from "@/types";
 import { translateExerciseName } from "@/lib/exerciseNames";
 import ExerciseSearchModal from "@/components/ExerciseSearchModal";
+import ResolveUnmatchedModal from "@/components/ResolveUnmatchedModal";
 import { IMPORT_DRAFT_STORAGE_KEY } from "@/components/HomeBuilderModal";
 import type { ImportedWorkoutDraft } from "@/lib/pdfWorkoutImporter";
 
@@ -40,6 +41,8 @@ function BuilderContent() {
   ]);
   const [activeTab, setActiveTab] = useState(0);
   const [showExerciseModal, setShowExerciseModal] = useState(false);
+  const [resolvingIdx, setResolvingIdx] = useState<number | null>(null);
+  const [showResolveSearch, setShowResolveSearch] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -81,7 +84,17 @@ function BuilderContent() {
   }, []);
 
   const totalExercises = routines.reduce((sum, r) => sum + r.exercises.length, 0);
-  const canSave = totalExercises > 0 && routines.every((r) => r.exercises.length > 0);
+  const hasUnresolved = routines.some((r) =>
+    r.exercises.some((ex) => Boolean(ex.unresolved))
+  );
+  const unresolvedCount = routines.reduce(
+    (sum, r) => sum + r.exercises.filter((ex) => ex.unresolved).length,
+    0
+  );
+  const canSave =
+    totalExercises > 0 &&
+    routines.every((r) => r.exercises.length > 0) &&
+    !hasUnresolved;
 
   const addRoutine = () => {
     if (routines.length >= MAX_ROUTINES) return;
@@ -120,6 +133,25 @@ function BuilderContent() {
           : r
       )
     );
+  };
+
+  const resolveExercise = (exIdx: number, libraryEx: LibraryExercise) => {
+    setRoutines((prev) =>
+      prev.map((r, i) => {
+        if (i !== activeTab) return r;
+        const updated = [...r.exercises];
+        const old = updated[exIdx];
+        updated[exIdx] = {
+          exercise_id: libraryEx.id,
+          name: libraryEx.name,
+          sets: old.sets,
+          reps: old.reps,
+        };
+        return { ...r, exercises: updated };
+      })
+    );
+    setResolvingIdx(null);
+    setShowResolveSearch(false);
   };
 
   const moveExercise = (exIdx: number, direction: -1 | 1) => {
@@ -298,59 +330,82 @@ function BuilderContent() {
             </div>
           ) : (
             <div className="stagger space-y-2">
-              {routines[activeTab].exercises.map((ex, exIdx) => (
-                <div
-                  key={`${ex.exercise_id}-${exIdx}`}
-                  className="animate-fade-in flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-3 transition-all"
-                >
-                  {/* Order badge */}
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--red-600)]/15 text-xs font-bold text-[var(--red-500)]">
-                    {exIdx + 1}
-                  </span>
-
-                  {/* Exercise info */}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold capitalize text-[var(--foreground)]">
-                      {translateExerciseName(ex.name)}
-                    </p>
-                    <p className="mt-0.5 text-xs text-[var(--text-dim)]">
-                      {ex.sets} séries × {ex.reps} reps
-                    </p>
-                  </div>
-
-                  {/* Move buttons */}
-                  <div className="flex shrink-0 flex-col gap-0.5">
-                    <button
-                      onClick={() => moveExercise(exIdx, -1)}
-                      disabled={exIdx === 0}
-                      className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:text-[var(--foreground)] disabled:opacity-25"
-                    >
-                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => moveExercise(exIdx, 1)}
-                      disabled={exIdx === routines[activeTab].exercises.length - 1}
-                      className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:text-[var(--foreground)] disabled:opacity-25"
-                    >
-                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                  </div>
-
-                  {/* Remove button */}
-                  <button
-                    onClick={() => removeExercise(exIdx)}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--text-dim)] transition-colors hover:bg-[var(--red-600)]/10 hover:text-[var(--red-500)]"
+              {routines[activeTab].exercises.map((ex, exIdx) => {
+                const isUnresolved = Boolean(ex.unresolved);
+                return (
+                  <div
+                    key={`${ex.exercise_id || ex.unresolved?.raw_name || "ex"}-${exIdx}`}
+                    className={`animate-fade-in flex items-center gap-2 rounded-xl border bg-[var(--surface)] px-3 py-3 transition-all ${
+                      isUnresolved
+                        ? "border-l-4 border-[var(--amber-500)]"
+                        : "border-[var(--border)]"
+                    }`}
                   >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-              ))}
+                    <span
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${
+                        isUnresolved
+                          ? "bg-[var(--amber-600)]/15 text-[var(--amber-500)]"
+                          : "bg-[var(--red-600)]/15 text-[var(--red-500)]"
+                      }`}
+                    >
+                      {isUnresolved ? "⚠" : exIdx + 1}
+                    </span>
+
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={`truncate text-sm font-semibold capitalize text-[var(--foreground)] ${
+                          isUnresolved ? "italic text-[var(--text-muted)]" : ""
+                        }`}
+                      >
+                        {isUnresolved ? ex.unresolved!.raw_name : translateExerciseName(ex.name)}
+                      </p>
+                      <p className="mt-0.5 text-xs text-[var(--text-dim)]">
+                        {isUnresolved ? "Do PDF · " : ""}
+                        {ex.sets} séries × {ex.reps} reps
+                      </p>
+                    </div>
+
+                    {isUnresolved ? (
+                      <button
+                        onClick={() => setResolvingIdx(exIdx)}
+                        className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--amber-600)] px-3 py-1.5 text-xs font-bold text-white shadow-md transition-all hover:bg-[var(--amber-700)]"
+                      >
+                        Resolver
+                      </button>
+                    ) : (
+                      <div className="flex shrink-0 flex-col gap-0.5">
+                        <button
+                          onClick={() => moveExercise(exIdx, -1)}
+                          disabled={exIdx === 0}
+                          className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:text-[var(--foreground)] disabled:opacity-25"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => moveExercise(exIdx, 1)}
+                          disabled={exIdx === routines[activeTab].exercises.length - 1}
+                          className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-dim)] transition-colors hover:text-[var(--foreground)] disabled:opacity-25"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => removeExercise(exIdx)}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--text-dim)] transition-colors hover:bg-[var(--red-600)]/10 hover:text-[var(--red-500)]"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -377,12 +432,21 @@ function BuilderContent() {
           <button
             onClick={handleSave}
             disabled={!canSave || saving}
-            className="flex w-full items-center justify-center gap-2.5 rounded-2xl py-4 text-sm font-bold text-white shadow-lg transition-all hover:shadow-xl disabled:opacity-50 gradient-red"
+            className={`flex w-full items-center justify-center gap-2.5 rounded-2xl py-4 text-sm font-bold text-white shadow-lg transition-all hover:shadow-xl disabled:opacity-50 ${
+              hasUnresolved ? "bg-[var(--amber-600)]" : "gradient-red"
+            }`}
           >
             {saving ? (
               <>
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                 Salvando...
+              </>
+            ) : hasUnresolved ? (
+              <>
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                </svg>
+                Resolver {unresolvedCount} exercício{unresolvedCount !== 1 ? "s" : ""}
               </>
             ) : (
               <>
@@ -404,6 +468,30 @@ function BuilderContent() {
           onClose={() => setShowExerciseModal(false)}
         />
       )}
+
+      {resolvingIdx !== null &&
+        routines[activeTab]?.exercises[resolvingIdx]?.unresolved && (
+          <ResolveUnmatchedModal
+            rawName={routines[activeTab].exercises[resolvingIdx].unresolved!.raw_name}
+            targetMuscle={routines[activeTab].exercises[resolvingIdx].unresolved!.target_muscle}
+            suggestionIds={routines[activeTab].exercises[resolvingIdx].unresolved!.suggestions}
+            onResolve={(libEx) => resolveExercise(resolvingIdx, libEx)}
+            onSearchManual={() => {
+              setShowResolveSearch(true);
+            }}
+            onClose={() => setResolvingIdx(null)}
+          />
+        )}
+
+      {showResolveSearch && resolvingIdx !== null &&
+        routines[activeTab]?.exercises[resolvingIdx]?.unresolved && (
+          <ExerciseSearchModal
+            mode="swap"
+            targetMuscle={routines[activeTab].exercises[resolvingIdx].unresolved!.target_muscle}
+            onSelect={(libEx) => resolveExercise(resolvingIdx, libEx)}
+            onClose={() => setShowResolveSearch(false)}
+          />
+        )}
     </div>
   );
 }
