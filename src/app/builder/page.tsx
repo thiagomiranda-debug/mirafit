@@ -1,17 +1,24 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { LibraryExercise, LocationType } from "@/types";
 import { translateExerciseName } from "@/lib/exerciseNames";
 import ExerciseSearchModal from "@/components/ExerciseSearchModal";
+import { IMPORT_DRAFT_STORAGE_KEY } from "@/components/HomeBuilderModal";
+import type { ImportedWorkoutDraft } from "@/lib/pdfWorkoutImporter";
 
 type BuilderExercise = {
   exercise_id: string;
   name: string;
   sets: number;
   reps: string;
+  unresolved?: {
+    raw_name: string;
+    target_muscle: string;
+    suggestions: string[];
+  };
 };
 
 type BuilderRoutine = {
@@ -35,6 +42,43 @@ function BuilderContent() {
   const [showExerciseModal, setShowExerciseModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = sessionStorage.getItem(IMPORT_DRAFT_STORAGE_KEY);
+    if (!raw) return;
+    sessionStorage.removeItem(IMPORT_DRAFT_STORAGE_KEY);
+
+    try {
+      const draft = JSON.parse(raw) as ImportedWorkoutDraft;
+      if (!draft.routines?.length) return;
+
+      setPlanName(draft.planName || "Ficha do Personal");
+      setLocationType(draft.locationType === "quartel" ? "quartel" : "gym");
+      setRoutines(
+        draft.routines.map((r) => ({
+          name: r.name || "Treino",
+          exercises: r.exercises.map((e) => ({
+            exercise_id: e.matched_exercise_id || "",
+            name: e.matched_name || e.raw_name,
+            sets: e.sets,
+            reps: e.reps,
+            unresolved: e.matched_exercise_id
+              ? undefined
+              : {
+                  raw_name: e.raw_name,
+                  target_muscle: e.target_muscle,
+                  suggestions: e.suggestions,
+                },
+          })),
+        }))
+      );
+      setActiveTab(0);
+    } catch (err) {
+      console.error("Failed to hydrate imported draft", err);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const totalExercises = routines.reduce((sum, r) => sum + r.exercises.length, 0);
   const canSave = totalExercises > 0 && routines.every((r) => r.exercises.length > 0);
