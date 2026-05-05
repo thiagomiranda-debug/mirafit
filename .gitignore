@@ -42,3 +42,6 @@ scripts/serviceAccountKey.json
 next-env.d.ts
 
 .vercel
+
+# git worktrees
+.worktrees
