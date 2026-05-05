@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    if (file.type && file.type !== "application/pdf") {
+    if (file.type !== "application/pdf") {
       return NextResponse.json(
         { error: "O arquivo precisa ser um PDF" },
         { status: 415 }

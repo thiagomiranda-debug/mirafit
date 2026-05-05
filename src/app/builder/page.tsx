@@ -80,7 +80,6 @@ function BuilderContent() {
     } catch (err) {
       console.error("Failed to hydrate imported draft", err);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const totalExercises = routines.reduce((sum, r) => sum + r.exercises.length, 0);

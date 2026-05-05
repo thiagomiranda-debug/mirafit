@@ -23,13 +23,10 @@ export default function ResolveUnmatchedModal({
   onClose,
 }: Props) {
   const [suggestions, setSuggestions] = useState<LibraryExercise[]>([]);
-  const [loading, setLoading] = useState(suggestionIds.length > 0);
+  const [fetching, setFetching] = useState(suggestionIds.length > 0);
 
   useEffect(() => {
-    if (suggestionIds.length === 0) {
-      setLoading(false);
-      return;
-    }
+    if (suggestionIds.length === 0) return;
     let cancelled = false;
     getExercisesByIds(suggestionIds)
       .then((map) => {
@@ -43,12 +40,14 @@ export default function ResolveUnmatchedModal({
         if (!cancelled) setSuggestions([]);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setFetching(false);
       });
     return () => {
       cancelled = true;
     };
   }, [suggestionIds]);
+
+  const loading = fetching && suggestions.length === 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end">
