@@ -10,6 +10,7 @@ import {
   limit,
   serverTimestamp,
   writeBatch,
+  updateDoc,
 } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase";
 import { Workout, Routine, LibraryExercise, LocationType } from "@/types";
@@ -214,4 +215,23 @@ export async function getActiveWorkoutByLocation(
   );
 
   return { ...workout, routines };
+}
+
+// Troca um exercício em uma rotina já salva — persiste a mudança no Firestore
+export async function updateRoutineExercise(
+  workoutId: string,
+  routineId: string,
+  oldExerciseId: string,
+  newExerciseId: string
+): Promise<void> {
+  const db = getFirebaseDb();
+  const routineRef = doc(db, "workouts", workoutId, "routines", routineId);
+  const snap = await getDoc(routineRef);
+  if (!snap.exists()) return;
+  const exercises = (
+    snap.data().exercises as Array<{ exercise_id: string } & Record<string, unknown>>
+  ).map((ex) =>
+    ex.exercise_id === oldExerciseId ? { ...ex, exercise_id: newExerciseId } : ex
+  );
+  await updateDoc(routineRef, { exercises });
 }
