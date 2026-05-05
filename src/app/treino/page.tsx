@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { getExercisesByIds } from "@/lib/workouts";
+import { getExercisesByIds, updateRoutineExercise } from "@/lib/workouts";
 import { saveWorkoutLog, getPerfAndRecords } from "@/lib/workoutLogs";
 import { LibraryExercise, Routine, ExercisePerformance, SetPerformance, LocationType } from "@/types";
 import { QUARTEL_EQUIPMENT_WHITELIST } from "@/lib/workoutGenerator";
@@ -65,6 +65,7 @@ function TreinoContent() {
   const [prMap, setPrMap] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [swapError, setSwapError] = useState(false);
 
   const [restTimer, setRestTimer] = useState<{
     exerciseName: string;
@@ -219,7 +220,7 @@ function TreinoContent() {
     }
   }
 
-  async function handleSwapExercise(exIdx: number, newExercise: LibraryExercise) {
+  function handleSwapExercise(exIdx: number, newExercise: LibraryExercise, oldExerciseId: string) {
     setRoutine((prev) => {
       if (!prev) return prev;
       const sorted = [...prev.exercises].sort((a, b) => a.order - b.order);
@@ -244,6 +245,13 @@ function TreinoContent() {
     });
 
     setSwapModal(null);
+    setSwapError(false);
+
+    if (workoutId && routineId) {
+      updateRoutineExercise(workoutId, routineId, oldExerciseId, newExercise.id).catch(() =>
+        setSwapError(true)
+      );
+    }
   }
 
   async function handleFinish() {
@@ -449,6 +457,16 @@ function TreinoContent() {
         {error && (
           <p className="text-center text-sm font-medium text-[var(--red-500)]">{error}</p>
         )}
+        {swapError && (
+          <div className="animate-fade-in flex items-center gap-2 rounded-xl border border-[var(--red-500)]/30 bg-[var(--red-600)]/10 px-4 py-3">
+            <svg className="h-4 w-4 shrink-0 text-[var(--red-500)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" />
+            </svg>
+            <p className="text-xs font-medium text-[var(--red-500)]">
+              Exercício trocado na sessão, mas não foi possível salvar. Verifique sua conexão.
+            </p>
+          </div>
+        )}
       </main>
 
       {/* Finish button */}
@@ -486,7 +504,7 @@ function TreinoContent() {
         <ExerciseSearchModal
           currentExerciseId={swapModal.exerciseId}
           targetMuscle={swapModal.muscle}
-          onSelect={(ex) => handleSwapExercise(swapModal.exIdx, ex)}
+          onSelect={(ex) => handleSwapExercise(swapModal.exIdx, ex, swapModal.exerciseId)}
           onClose={() => setSwapModal(null)}
           equipmentWhitelist={locationType === "quartel" ? QUARTEL_EQUIPMENT_WHITELIST : undefined}
         />
