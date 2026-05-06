@@ -556,6 +556,24 @@ function ExerciseCard({
   const [open, setOpen] = useState(false);
   const [imgOk, setImgOk] = useState(true);
 
+  function openYouTube(query: string) {
+    const encoded = encodeURIComponent(query);
+    const webUrl = `https://www.youtube.com/results?search_query=${encoded}`;
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (!isIOS) { window.open(webUrl, "_blank", "noopener,noreferrer"); return; }
+
+    // iOS: tenta abrir no app via scheme nativo; se o app não abrir em 1.5s, abre no browser
+    const appUrl = `youtube://results?search_query=${encoded}`;
+    let appOpened = false;
+    const onBlur = () => { appOpened = true; };
+    window.addEventListener("blur", onBlur, { once: true });
+    window.location.href = appUrl;
+    setTimeout(() => {
+      window.removeEventListener("blur", onBlur);
+      if (!appOpened) window.open(webUrl, "_blank", "noopener,noreferrer");
+    }, 1500);
+  }
+
   const doneSets = setInputs.filter((s) => s.done).length;
   const allDone = setInputs.length > 0 && doneSets === setInputs.length;
 
@@ -750,11 +768,9 @@ function ExerciseCard({
             </div>
           )}
 
-          <a
-            href={`https://www.youtube.com/results?search_query=${encodeURIComponent(name + " execução")}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); openYouTube(name + " execução"); }}
             className="mt-3 flex w-full items-center gap-2.5 rounded-xl bg-[var(--surface-2)] px-4 py-2.5 transition-colors hover:bg-[var(--surface-3)]"
           >
             <svg className="h-5 w-5 shrink-0 text-[var(--red-500)]" viewBox="0 0 24 24" fill="currentColor">
@@ -764,7 +780,7 @@ function ExerciseCard({
             <svg className="ml-auto h-3.5 w-3.5 shrink-0 text-[var(--text-dim)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
-          </a>
+          </button>
 
           {(targetMuscle || equipment) && (
             <div className="mt-3 flex flex-wrap gap-2">
