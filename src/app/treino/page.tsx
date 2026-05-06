@@ -750,6 +750,22 @@ function ExerciseCard({
             </div>
           )}
 
+          <a
+            href={`https://www.youtube.com/results?search_query=${encodeURIComponent(name + " execução")}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="mt-3 flex w-full items-center gap-2.5 rounded-xl bg-[var(--surface-2)] px-4 py-2.5 transition-colors hover:bg-[var(--surface-3)]"
+          >
+            <svg className="h-5 w-5 shrink-0 text-[var(--red-500)]" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+            </svg>
+            <span className="text-sm font-medium text-[var(--text-muted)]">Ver demonstração no YouTube</span>
+            <svg className="ml-auto h-3.5 w-3.5 shrink-0 text-[var(--text-dim)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+
           {(targetMuscle || equipment) && (
             <div className="mt-3 flex flex-wrap gap-2">
               {targetMuscle && (
