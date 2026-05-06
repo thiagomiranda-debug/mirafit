@@ -129,28 +129,46 @@ export async function importWorkoutFromPdf(
 
   const userText = `Biblioteca de exercícios disponível (JSON):\n\`\`\`json\n${JSON.stringify(slimCatalog)}\n\`\`\`\n\nExtraia o treino do PDF anexado conforme as instruções.`;
 
-  let response;
-  try {
-    response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { inlineData: { mimeType: "application/pdf", data: pdfBase64 } },
-            { text: userText },
-          ],
-        },
-      ],
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        responseMimeType: "application/json",
-        responseSchema: RESPONSE_SCHEMA,
-        temperature: 0.2,
+  const requestPayload = {
+    model: "gemini-2.5-flash",
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { inlineData: { mimeType: "application/pdf", data: pdfBase64 } },
+          { text: userText },
+        ],
       },
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+    ],
+    config: {
+      systemInstruction: SYSTEM_INSTRUCTION,
+      responseMimeType: "application/json",
+      responseSchema: RESPONSE_SCHEMA,
+      temperature: 0.2,
+    },
+  };
+
+  const MAX_ATTEMPTS = 3;
+  let lastErr: unknown;
+  let response;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      response = await ai.models.generateContent(requestPayload);
+      break;
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      const isTransient = msg.includes("503") || msg.includes("UNAVAILABLE") || msg.includes("overloaded");
+      if (!isTransient || attempt === MAX_ATTEMPTS) {
+        throw new PdfImportError(`Falha ao chamar Gemini: ${msg}`, 502);
+      }
+      await new Promise((r) => setTimeout(r, attempt * 2000));
+    }
+  }
+
+  if (!response) {
+    const msg = lastErr instanceof Error ? lastErr.message : String(lastErr);
     throw new PdfImportError(`Falha ao chamar Gemini: ${msg}`, 502);
   }
 
