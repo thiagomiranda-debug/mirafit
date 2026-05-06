@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState, useCallback } from "react";
+import { Suspense, useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { getExercisesByIds, updateRoutineExercise } from "@/lib/workouts";
@@ -82,6 +82,7 @@ function TreinoContent() {
   } | null>(null);
   const trainingStartRef = useRef<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const finalElapsedRef = useRef(0);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const [swapModal, setSwapModal] = useState<{ exIdx: number; exerciseId: string; muscle: string } | null>(null);
   const [notes, setNotes] = useState("");
@@ -324,6 +325,7 @@ function TreinoContent() {
     setError("");
     try {
       await saveWorkoutLog(user.uid, routine.name, perf, notes, locationType);
+      finalElapsedRef.current = elapsed;
       setSaved(true);
     } catch {
       setError("Erro ao salvar. Tente novamente.");
@@ -358,30 +360,12 @@ function TreinoContent() {
 
   if (saved) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-5 bg-[var(--background)] px-6">
-        <div className="animate-scale-in flex h-20 w-20 items-center justify-center rounded-full bg-[var(--success)]/15">
-          <svg className="h-10 w-10 text-[var(--success)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
-        <div className="text-center">
-          <h2
-            className="text-4xl text-[var(--foreground)]"
-            style={{ fontFamily: "var(--font-bebas)" }}
-          >
-            TREINO FINALIZADO!
-          </h2>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">
-            {routine.name} salvo no histórico
-          </p>
-        </div>
-        <button
-          onClick={() => router.push("/")}
-          className="mt-2 rounded-2xl px-8 py-3.5 text-sm font-bold text-white gradient-red transition-all hover:shadow-lg hover:shadow-[var(--red-600)]/20"
-        >
-          Voltar ao início
-        </button>
-      </div>
+      <WorkoutComplete
+        routineName={routine.name}
+        inputs={inputs}
+        elapsed={finalElapsedRef.current}
+        onHome={() => router.push("/")}
+      />
     );
   }
 
@@ -571,6 +555,289 @@ function TreinoContent() {
           equipmentWhitelist={locationType === "quartel" ? QUARTEL_EQUIPMENT_WHITELIST : undefined}
         />
       )}
+    </div>
+  );
+}
+
+// ─── WorkoutComplete ──────────────────────────────────────────────────────────
+
+const MOTIVATIONAL_QUOTES = [
+  "CADA SÉRIE É UMA VITÓRIA",
+  "VOCÊ É MAIS FORTE DO QUE PENSA",
+  "MISSÃO CUMPRIDA. REPITA AMANHÃ.",
+  "O CORPO CONQUISTA O QUE A MENTE ORDENA",
+  "SEM SUOR, SEM GLÓRIA",
+  "A DOR DE HOJE É A FORÇA DE AMANHÃ",
+  "VOCÊ GANHOU O DIA",
+  "DISCIPLINA BATE MOTIVAÇÃO TODOS OS DIAS",
+];
+
+function WorkoutComplete({
+  routineName,
+  inputs,
+  elapsed,
+  onHome,
+}: {
+  routineName: string;
+  inputs: ExerciseInput[];
+  elapsed: number;
+  onHome: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const stats = useMemo(() => {
+    const doneSetsArr = inputs.flatMap((inp) => inp.sets.filter((s) => s.done));
+    const totalPossible = inputs.reduce((a, inp) => a + inp.sets.length, 0);
+    const totalDone = doneSetsArr.length;
+    const totalVolume = doneSetsArr.reduce(
+      (a, s) => a + (parseFloat(s.weight) || 0) * (parseInt(s.reps) || 0),
+      0
+    );
+    const totalReps = doneSetsArr.reduce((a, s) => a + (parseInt(s.reps) || 0), 0);
+    const exercisesCompleted = inputs.filter((inp) => inp.sets.some((s) => s.done)).length;
+    const pct = totalPossible > 0 ? (totalDone / totalPossible) * 100 : 0;
+    return { totalDone, totalPossible, totalVolume, totalReps, exercisesCompleted, pct };
+  }, [inputs]);
+
+  const quote = useMemo(
+    () => MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)],
+    []
+  );
+
+  const evalMessage = useMemo(() => {
+    if (stats.pct === 100) return "Perfeito! Você dominou cada série hoje. 🔥";
+    if (stats.pct >= 80) return "Excelente! Treino sólido e consistente.";
+    if (stats.pct >= 60) return "Bom trabalho! Cada rep conta na sua evolução.";
+    return "Você apareceu — e isso já é metade da batalha.";
+  }, [stats.pct]);
+
+  const volumeStr = useMemo(() => {
+    if (stats.totalVolume >= 1000)
+      return `${(stats.totalVolume / 1000).toFixed(1).replace(".", ",")}t`;
+    if (stats.totalVolume > 0)
+      return `${stats.totalVolume.toFixed(0)} kg`;
+    return `${stats.totalReps} reps`;
+  }, [stats]);
+
+  const particles = useMemo(
+    () =>
+      Array.from({ length: 28 }, (_, i) => ({
+        id: i,
+        color:
+          i % 4 === 0 ? "#EF4444" :
+          i % 4 === 1 ? "#F59E0B" :
+          i % 4 === 2 ? "#FBBF24" : "#F5F5F7",
+        left: `${(i / 28) * 100 + (i % 3) * 2}%`,
+        delay: `${(i * 0.09) % 1.8}s`,
+        duration: `${2.2 + (i % 5) * 0.3}s`,
+        size: `${5 + (i % 4) * 2}px`,
+        isRect: i % 3 !== 0,
+      })),
+    []
+  );
+
+  async function handleShare() {
+    const volumeLabel = stats.totalVolume > 0 ? `${volumeStr} de volume` : `${stats.totalReps} reps`;
+    const text = [
+      `💪 Treino concluído no MiraFit!`,
+      `📋 ${routineName}`,
+      `⏱ ${formatElapsed(elapsed)}  •  🔥 ${stats.totalDone} séries  •  ${volumeLabel}`,
+    ].join("\n");
+
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share({ title: "MiraFit – Treino Concluído!", text });
+        return;
+      } catch {
+        // dismissed — fall through to clipboard
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch { /* clipboard unavailable */ }
+  }
+
+  return (
+    <div className="relative flex flex-1 flex-col items-center justify-between overflow-hidden bg-[var(--background)] px-5 py-10">
+      {/* ── Radial glow background ── */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div
+          className="animate-glow-breathe absolute left-1/2 top-[38%] h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--red-600)]/20 blur-[80px]"
+        />
+        <div
+          className="animate-glow-breathe absolute left-1/2 top-[38%] h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--amber-500)]/15 blur-[40px]"
+          style={{ animationDelay: "1.2s" }}
+        />
+      </div>
+
+      {/* ── Confetti ── */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        {particles.map((p) => (
+          <div
+            key={p.id}
+            className="absolute top-0"
+            style={{
+              left: p.left,
+              width: p.size,
+              height: p.isRect ? `calc(${p.size} * 0.5)` : p.size,
+              backgroundColor: p.color,
+              borderRadius: p.isRect ? "1px" : "50%",
+              animation: `confetti-fall ${p.duration} ${p.delay} ease-in both`,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* ── Top: Logo ── */}
+      <div className="animate-fade-in z-10 flex items-center gap-2.5">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/icons/icon-192.png" alt="MiraFit" className="h-8 w-8 rounded-xl" />
+        <span
+          className="text-2xl tracking-[0.12em] text-[var(--foreground)]"
+          style={{ fontFamily: "var(--font-bebas)" }}
+        >
+          MIRAFIT
+        </span>
+      </div>
+
+      {/* ── Center: Trophy + Title + Quote + Stats ── */}
+      <div className="z-10 flex w-full flex-col items-center gap-5 text-center">
+        {/* Trophy */}
+        <div className="animate-scale-in animate-trophy-pulse relative flex h-24 w-24 items-center justify-center">
+          <div className="absolute inset-0 rounded-full bg-[var(--amber-500)]/15 blur-lg" />
+          <div className="relative flex h-[88px] w-[88px] items-center justify-center rounded-full border border-[var(--amber-500)]/25 bg-gradient-to-b from-[var(--amber-500)]/10 to-transparent">
+            <span style={{ fontSize: "2.8rem", lineHeight: 1 }}>🏆</span>
+          </div>
+        </div>
+
+        {/* Title */}
+        <div className="animate-fade-in-up" style={{ animationDelay: "180ms" }}>
+          <h1
+            className="leading-none text-[var(--foreground)]"
+            style={{
+              fontFamily: "var(--font-bebas)",
+              fontSize: "clamp(2.8rem, 12vw, 4.5rem)",
+              letterSpacing: "0.04em",
+            }}
+          >
+            TREINO<br />CONCLUÍDO!
+          </h1>
+          <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--amber-500)]">
+            {quote}
+          </p>
+          <p className="mt-1 text-xs text-[var(--text-dim)]">{routineName}</p>
+        </div>
+
+        {/* Eval message */}
+        <div
+          className="animate-fade-in-up w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-5 py-3"
+          style={{ animationDelay: "320ms" }}
+        >
+          <p className="text-sm text-[var(--text-muted)]">{evalMessage}</p>
+        </div>
+
+        {/* Stats 2×2 */}
+        <div className="grid w-full grid-cols-2 gap-3">
+          {[
+            {
+              icon: "🔥",
+              label: "SÉRIES",
+              value: `${stats.totalDone}/${stats.totalPossible}`,
+              accent: "red" as const,
+              delay: "400ms",
+            },
+            {
+              icon: "⚡",
+              label: stats.totalVolume > 0 ? "VOLUME" : "REPS TOTAIS",
+              value: volumeStr,
+              accent: "amber" as const,
+              delay: "480ms",
+            },
+            {
+              icon: "⏱",
+              label: "DURAÇÃO",
+              value: formatElapsed(elapsed),
+              accent: "red" as const,
+              delay: "560ms",
+            },
+            {
+              icon: "💪",
+              label: "EXERCÍCIOS",
+              value: String(stats.exercisesCompleted),
+              accent: "amber" as const,
+              delay: "640ms",
+            },
+          ].map((s) => (
+            <div
+              key={s.label}
+              className="animate-stat-pop rounded-2xl border p-4"
+              style={{
+                animationDelay: s.delay,
+                borderColor:
+                  s.accent === "red"
+                    ? "rgba(239,68,68,0.2)"
+                    : "rgba(245,158,11,0.2)",
+                background:
+                  s.accent === "red"
+                    ? "rgba(220,38,38,0.07)"
+                    : "rgba(245,158,11,0.07)",
+              }}
+            >
+              <p className="mb-1 text-base">{s.icon}</p>
+              <p
+                className="text-2xl leading-none"
+                style={{
+                  fontFamily: "var(--font-bebas)",
+                  color:
+                    s.accent === "red"
+                      ? "var(--red-500)"
+                      : "var(--amber-500)",
+                }}
+              >
+                {s.value}
+              </p>
+              <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.15em] text-[var(--text-dim)]">
+                {s.label}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Bottom: Buttons ── */}
+      <div
+        className="animate-fade-in-up z-10 w-full space-y-3"
+        style={{ animationDelay: "750ms" }}
+      >
+        <button
+          onClick={handleShare}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--amber-500)]/30 bg-[var(--amber-500)]/10 py-4 text-sm font-bold text-[var(--amber-500)] transition-all hover:bg-[var(--amber-500)]/15 active:scale-[0.98]"
+        >
+          {copied ? (
+            <>
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              Copiado!
+            </>
+          ) : (
+            <>
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              Compartilhar resultado
+            </>
+          )}
+        </button>
+        <button
+          onClick={onHome}
+          className="w-full rounded-2xl py-4 text-sm font-bold text-white shadow-lg shadow-[var(--red-600)]/20 transition-all gradient-red hover:shadow-xl active:scale-[0.98]"
+        >
+          Voltar ao início
+        </button>
+      </div>
     </div>
   );
 }

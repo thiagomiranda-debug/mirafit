@@ -105,6 +105,24 @@ input[type="number"] {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
+@keyframes confetti-fall {
+  0%   { transform: translateY(-20px) rotate(0deg) scaleX(1);   opacity: 1; }
+  50%  { transform: translateY(50vh)  rotate(540deg) scaleX(-1); opacity: 0.8; }
+  100% { transform: translateY(110vh) rotate(1080deg) scaleX(1); opacity: 0; }
+}
+@keyframes trophy-pulse {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(245,158,11,0.3)); transform: scale(1); }
+  50%       { filter: drop-shadow(0 0 22px rgba(245,158,11,0.75)); transform: scale(1.07); }
+}
+@keyframes glow-breathe {
+  0%, 100% { opacity: 0.15; }
+  50%       { opacity: 0.5; }
+}
+@keyframes stat-pop {
+  0%   { opacity: 0; transform: scale(0.88) translateY(12px); }
+  70%  { transform: scale(1.03) translateY(-2px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
 
 .animate-fade-in {
   animation: fade-in 0.35s ease-out both;
@@ -120,6 +138,15 @@ input[type="number"] {
 }
 .animate-pulse-glow {
   animation: pulse-glow 2s ease-in-out infinite;
+}
+.animate-glow-breathe {
+  animation: glow-breathe 3s ease-in-out infinite;
+}
+.animate-trophy-pulse {
+  animation: trophy-pulse 2.5s ease-in-out infinite;
+}
+.animate-stat-pop {
+  animation: stat-pop 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 /* Stagger children */
