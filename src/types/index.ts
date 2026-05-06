@@ -95,3 +95,27 @@ export interface WorkoutLog {
   notes?: string;
   location_type?: LocationType;
 }
+
+export interface BodyMeasurement {
+  id?: string;
+  user_id: string;
+  date: Date;
+  // Geral
+  weight_kg?: number;
+  // Tronco
+  waist_cm?: number;
+  hip_cm?: number;
+  chest_cm?: number;
+  shoulder_cm?: number;
+  neck_cm?: number;
+  // Membros Superiores
+  bicep_r_cm?: number;
+  bicep_l_cm?: number;
+  forearm_r_cm?: number;
+  forearm_l_cm?: number;
+  // Membros Inferiores
+  thigh_r_cm?: number;
+  thigh_l_cm?: number;
+  calf_r_cm?: number;
+  calf_l_cm?: number;
+}

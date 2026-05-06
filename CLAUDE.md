@@ -128,6 +128,7 @@ Copy `.env.local.example` to `.env.local`. `NEXT_PUBLIC_*` vars are client-side 
 All required composite indexes are active in production:
 - `workout_history`: `user_id ASC, date DESC`
 - `taf_attempts`: `user_id ASC, date DESC`
+- `body_measurements`: `user_id ASC, date DESC`
 - `workouts`: `is_active ASC, user_id ASC, created_at DESC`
 - `workouts`: `is_active ASC, location_type ASC, user_id ASC, created_at DESC`
 

@@ -234,6 +234,27 @@ export default function ProfilePage() {
               <ProgressChart userId={user!.uid} />
             </Section>
 
+            {/* Medidas Corporais */}
+            <button
+              onClick={() => router.push("/medidas")}
+              className="flex w-full items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3.5 text-left transition-colors hover:bg-[var(--surface-2)]"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--amber-500)]/10 text-[var(--amber-500)]">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-[var(--foreground)]">Medidas Corporais</p>
+                  <p className="text-xs text-[var(--text-dim)]">Peso, circunferências e evolução</p>
+                </div>
+              </div>
+              <svg className="h-4 w-4 text-[var(--text-dim)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+
             {/* Dados pessoais */}
             <Section title="Dados pessoais">
               <Field label="Nome completo">

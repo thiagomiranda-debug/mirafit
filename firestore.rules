@@ -41,5 +41,13 @@ service cloud.firestore {
       allow update: if false;
       allow delete: if false;
     }
+
+    // Medidas corporais: imutaveis apos criacao, so o dono acessa
+    match /body_measurements/{measurementId} {
+      allow read: if request.auth != null && resource.data.user_id == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
+      allow update: if false;
+      allow delete: if false;
+    }
   }
 }
