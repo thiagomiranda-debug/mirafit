@@ -59,12 +59,12 @@ export default function Home() {
   } | null>(null);
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [showBuilderModal, setShowBuilderModal] = useState(false);
-  const [locationType, setLocationType] = useState<LocationType>(() => {
-    if (typeof window !== "undefined") {
-      return (localStorage.getItem("mirafit_location") as LocationType) || "gym";
-    }
-    return "gym";
-  });
+  const [locationType, setLocationType] = useState<LocationType>("gym");
+
+  useEffect(() => {
+    const stored = localStorage.getItem("mirafit_location") as LocationType | null;
+    if (stored) setLocationType(stored);
+  }, []);
   const router = useRouter();
 
   useEffect(() => {

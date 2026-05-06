@@ -221,6 +221,9 @@ function TreinoContent() {
   }
 
   function handleSwapExercise(exIdx: number, newExercise: LibraryExercise, oldExerciseId: string) {
+    const prevRoutine = routine;
+    const prevInputs = inputs;
+
     setRoutine((prev) => {
       if (!prev) return prev;
       const sorted = [...prev.exercises].sort((a, b) => a.order - b.order);
@@ -231,8 +234,8 @@ function TreinoContent() {
     setExercises((prev) => ({ ...prev, [newExercise.id]: newExercise }));
 
     const prev = lastPerf[newExercise.id] || [];
-    setInputs((prevInputs) => {
-      const next = [...prevInputs];
+    setInputs((prevInputsState) => {
+      const next = [...prevInputsState];
       next[exIdx] = {
         exercise_id: newExercise.id,
         sets: Array.from({ length: next[exIdx].sets.length }, (_, i) => ({
@@ -248,9 +251,11 @@ function TreinoContent() {
     setSwapError(false);
 
     if (workoutId && routineId) {
-      updateRoutineExercise(workoutId, routineId, oldExerciseId, newExercise.id).catch(() =>
-        setSwapError(true)
-      );
+      updateRoutineExercise(workoutId, routineId, oldExerciseId, newExercise.id).catch(() => {
+        setRoutine(prevRoutine);
+        setInputs(prevInputs);
+        setSwapError(true);
+      });
     }
   }
 
@@ -402,7 +407,7 @@ function TreinoContent() {
             const exInput = inputs[idx] ?? { exercise_id: ex.exercise_id, sets: [] };
             return (
               <ExerciseCard
-                key={ex.exercise_id + idx}
+                key={`${ex.exercise_id}-${idx}`}
                 name={name}
                 gifUrl={lib?.gif_url}
                 targetMuscle={lib?.target_muscle}

@@ -40,12 +40,14 @@ export async function POST(req: NextRequest) {
 
     // 2. Busca catálogo de exercícios (id, name, target_muscle, equipment)
     const exercisesSnap = await db.collection("library_exercises").get();
-    const catalog = exercisesSnap.docs.map((d) => ({
-      id: d.id,
-      name: d.data().name as string,
-      muscle: d.data().target_muscle as string,
-      equipment: (d.data().equipment as string) || '',
-    }));
+    const catalog = exercisesSnap.docs
+      .map((d) => ({
+        id: d.id,
+        name: (d.data().name as string) || '',
+        muscle: (d.data().target_muscle as string) || '',
+        equipment: (d.data().equipment as string) || '',
+      }))
+      .filter((e) => e.name && e.muscle);
 
     // 3. Busca treino ativo anterior (para construir contexto de periodização)
     const activeSnap = await db

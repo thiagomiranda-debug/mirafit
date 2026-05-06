@@ -26,10 +26,12 @@ service cloud.firestore {
       }
     }
 
-    // Historico de treinos: usuario so acessa seu proprio historico
+    // Historico de treinos: imutavel apos criacao, so o dono acessa
     match /workout_history/{logId} {
-      allow read, write: if request.auth != null && resource.data.user_id == request.auth.uid;
+      allow read: if request.auth != null && resource.data.user_id == request.auth.uid;
       allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
+      allow update: if false;
+      allow delete: if false;
     }
 
     // Tentativas de TAF: imutaveis apos criacao, so o dono acessa

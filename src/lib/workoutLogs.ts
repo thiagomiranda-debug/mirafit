@@ -51,7 +51,7 @@ export async function getWorkoutLogs(
     const log: WorkoutLog = {
       id: d.id,
       user_id: data.user_id,
-      date: data.date instanceof Timestamp ? data.date.toDate() : new Date(data.date),
+      date: data.date instanceof Timestamp ? data.date.toDate() : (data.date ? new Date(data.date) : new Date()),
       routine_name: data.routine_name,
       performance: data.performance,
     };
@@ -68,7 +68,7 @@ export async function getWorkoutLogs(
 export async function getLastPerformanceMap(
   userId: string
 ): Promise<Record<string, SetPerformance[]>> {
-  const logs = await getWorkoutLogs(userId, 20);
+  const logs = await getWorkoutLogs(userId, 60);
   const map: Record<string, SetPerformance[]> = {};
 
   for (const log of logs) {
