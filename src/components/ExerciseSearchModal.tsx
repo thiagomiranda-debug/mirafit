@@ -147,7 +147,7 @@ export default function ExerciseSearchModal({
       {/* Sheet */}
       <div
         className="animate-slide-up relative flex w-full max-w-md flex-col rounded-t-3xl bg-[var(--surface)]"
-        style={{ maxHeight: "85vh" }}
+        style={{ maxHeight: "90vh" }}
       >
         {/* Handle */}
         <div className="flex shrink-0 items-center justify-between px-4 pb-3 pt-4">
@@ -240,82 +240,112 @@ export default function ExerciseSearchModal({
             <div className="space-y-2">
               {filtered.map((ex) => (
                 <div key={ex.id}>
-                  <button
-                    onClick={() =>
-                      mode === "builder" ? handleBuilderExpand(ex) : handleSwapSelect(ex)
-                    }
-                    className={`flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-all ${
-                      addedIds.has(ex.id)
-                        ? "border-[var(--success)]/40 bg-[var(--success)]/10"
-                        : expandedId === ex.id
-                        ? "border-[var(--red-500)]/40 bg-[var(--red-600)]/10"
-                        : "border-[var(--border)] bg-[var(--surface-2)] hover:border-[var(--red-500)]/30 hover:bg-[var(--red-600)]/8"
-                    }`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold capitalize text-[var(--foreground)]">
-                        {translateExerciseName(ex.name)}
-                      </p>
-                      <p className="mt-0.5 text-xs text-[var(--text-dim)]">
-                        {ex.category || ex.equipment || "—"}
-                      </p>
-                    </div>
-                    {addedIds.has(ex.id) ? (
-                      <svg className="h-5 w-5 shrink-0 text-[var(--success)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : mode === "builder" ? (
-                      <svg
-                        className={`h-4 w-4 shrink-0 text-[var(--text-dim)] transition-transform ${expandedId === ex.id ? "rotate-180" : ""}`}
-                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    ) : (
+                  {mode === "swap" ? (
+                    <button
+                      onClick={() => handleSwapSelect(ex)}
+                      className="flex w-full items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3 text-left transition-all hover:border-[var(--red-500)]/30 hover:bg-[var(--red-600)]/8 active:scale-[0.98]"
+                    >
+                      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[var(--surface-3)]">
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <svg className="h-6 w-6 text-[var(--text-dim)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
+                          </svg>
+                        </div>
+                        <img
+                          src={`https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/${ex.id}/0.jpg`}
+                          alt=""
+                          loading="lazy"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                          className="relative h-full w-full object-cover"
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold capitalize text-[var(--foreground)]">
+                          {translateExerciseName(ex.name)}
+                        </p>
+                        <p className="mt-0.5 text-xs text-[var(--text-dim)]">
+                          {translateMuscleName(ex.target_muscle || "")}
+                          {ex.equipment ? ` · ${ex.equipment}` : ""}
+                        </p>
+                      </div>
                       <svg className="h-4 w-4 shrink-0 text-[var(--text-dim)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                       </svg>
-                    )}
-                  </button>
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleBuilderExpand(ex)}
+                        className={`flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-all ${
+                          addedIds.has(ex.id)
+                            ? "border-[var(--success)]/40 bg-[var(--success)]/10"
+                            : expandedId === ex.id
+                            ? "border-[var(--red-500)]/40 bg-[var(--red-600)]/10"
+                            : "border-[var(--border)] bg-[var(--surface-2)] hover:border-[var(--red-500)]/30 hover:bg-[var(--red-600)]/8"
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold capitalize text-[var(--foreground)]">
+                            {translateExerciseName(ex.name)}
+                          </p>
+                          <p className="mt-0.5 text-xs text-[var(--text-dim)]">
+                            {ex.category || ex.equipment || "—"}
+                          </p>
+                        </div>
+                        {addedIds.has(ex.id) ? (
+                          <svg className="h-5 w-5 shrink-0 text-[var(--success)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          <svg
+                            className={`h-4 w-4 shrink-0 text-[var(--text-dim)] transition-transform ${expandedId === ex.id ? "rotate-180" : ""}`}
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        )}
+                      </button>
 
-                  {/* Inline detail expansion (builder mode only) */}
-                  {mode === "builder" && expandedId === ex.id && (
-                    <div className="animate-fade-in mt-1 rounded-xl border border-[var(--border)] bg-[var(--surface-3)] px-3.5 py-3">
-                      <div className="flex items-end gap-3">
-                        <div className="flex-1">
-                          <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-[var(--text-dim)]">
-                            Séries
-                          </label>
-                          <input
-                            type="number"
-                            min={1}
-                            max={10}
-                            value={detailSets}
-                            onChange={(e) => setDetailSets(Math.max(1, Math.min(10, Number(e.target.value) || 1)))}
-                            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-center text-sm font-bold text-[var(--foreground)] focus:border-[var(--red-500)] focus:outline-none focus:ring-1 focus:ring-[var(--red-500)]"
-                          />
+                      {expandedId === ex.id && (
+                        <div className="animate-fade-in mt-1 rounded-xl border border-[var(--border)] bg-[var(--surface-3)] px-3.5 py-3">
+                          <div className="flex items-end gap-3">
+                            <div className="flex-1">
+                              <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-[var(--text-dim)]">
+                                Séries
+                              </label>
+                              <input
+                                type="number"
+                                min={1}
+                                max={10}
+                                value={detailSets}
+                                onChange={(e) => setDetailSets(Math.max(1, Math.min(10, Number(e.target.value) || 1)))}
+                                className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-center text-sm font-bold text-[var(--foreground)] focus:border-[var(--red-500)] focus:outline-none focus:ring-1 focus:ring-[var(--red-500)]"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-[var(--text-dim)]">
+                                Reps
+                              </label>
+                              <input
+                                type="text"
+                                value={detailReps}
+                                onChange={(e) => setDetailReps(e.target.value)}
+                                placeholder="ex: 10-12"
+                                className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-center text-sm font-bold text-[var(--foreground)] placeholder-[var(--text-dim)] focus:border-[var(--red-500)] focus:outline-none focus:ring-1 focus:ring-[var(--red-500)]"
+                              />
+                            </div>
+                            <button
+                              onClick={() => handleBuilderConfirm(ex)}
+                              disabled={!detailReps.trim()}
+                              className="shrink-0 rounded-xl px-4 py-2 text-xs font-bold text-white shadow transition-all hover:shadow-md disabled:opacity-50 gradient-red"
+                            >
+                              Adicionar
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex-1">
-                          <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-[var(--text-dim)]">
-                            Reps
-                          </label>
-                          <input
-                            type="text"
-                            value={detailReps}
-                            onChange={(e) => setDetailReps(e.target.value)}
-                            placeholder="ex: 10-12"
-                            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-center text-sm font-bold text-[var(--foreground)] placeholder-[var(--text-dim)] focus:border-[var(--red-500)] focus:outline-none focus:ring-1 focus:ring-[var(--red-500)]"
-                          />
-                        </div>
-                        <button
-                          onClick={() => handleBuilderConfirm(ex)}
-                          disabled={!detailReps.trim()}
-                          className="shrink-0 rounded-xl px-4 py-2 text-xs font-bold text-white shadow transition-all hover:shadow-md disabled:opacity-50 gradient-red"
-                        >
-                          Adicionar
-                        </button>
-                      </div>
-                    </div>
+                      )}
+                    </>
                   )}
                 </div>
               ))}
