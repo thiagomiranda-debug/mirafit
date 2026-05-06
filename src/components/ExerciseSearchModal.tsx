@@ -62,6 +62,7 @@ export default function ExerciseSearchModal({
   const [detailSets, setDetailSets] = useState(3);
   const [detailReps, setDetailReps] = useState("10-12");
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
+  const [imgErrors, setImgErrors] = useState<Set<string>>(new Set());
 
   const activeMuscle = mode === "builder" ? selectedMuscle : targetMuscle || "";
 
@@ -254,10 +255,11 @@ export default function ExerciseSearchModal({
                         </div>
                         <img
                           src={`https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/${ex.id}/0.jpg`}
-                          alt=""
+                          alt={translateExerciseName(ex.name)}
                           loading="lazy"
-                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                          onError={() => setImgErrors((prev) => new Set(prev).add(ex.id))}
                           className="relative h-full w-full object-cover"
+                          style={imgErrors.has(ex.id) ? { display: "none" } : undefined}
                         />
                       </div>
                       <div className="min-w-0 flex-1">
