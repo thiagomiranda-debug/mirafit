@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+const REST_DURATION_KEY = "mirafit_rest_duration";
+
 export interface NextPreview {
   /** "Próxima série" quando faltam séries do mesmo exercício, ou "Próximo exercício" */
   label: string;
@@ -19,6 +21,34 @@ interface RestTimerProps {
   initialSeconds?: number;
   onClose: () => void;
   nextPreview?: NextPreview | null;
+  /** AudioContext já desbloqueado pelo gesto do usuário (obrigatório no iOS) */
+  audioCtx?: AudioContext | null;
+}
+
+function playAlert(ctx: AudioContext | null | undefined) {
+  if (!ctx || ctx.state === "closed") return;
+  ctx.resume().then(() => {
+    [0, 0.35, 0.7].forEach((offset) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.5, ctx.currentTime + offset);
+      gain.gain.exponentialRampToValueAtTime(
+        0.001,
+        ctx.currentTime + offset + 0.3
+      );
+      osc.start(ctx.currentTime + offset);
+      osc.stop(ctx.currentTime + offset + 0.3);
+    });
+  });
+}
+
+function getSavedDuration(fallback: number): number {
+  if (typeof window === "undefined") return fallback;
+  const saved = parseInt(localStorage.getItem(REST_DURATION_KEY) ?? "", 10);
+  return Number.isFinite(saved) && saved > 0 ? saved : fallback;
 }
 
 export default function RestTimer({
@@ -26,32 +56,65 @@ export default function RestTimer({
   initialSeconds = 90,
   onClose,
   nextPreview,
+  audioCtx,
 }: RestTimerProps) {
-  const [remaining, setRemaining] = useState(initialSeconds);
-  const [total, setTotal] = useState(initialSeconds);
+  const initSecs = useRef(getSavedDuration(initialSeconds)).current;
+
+  const [remaining, setRemaining] = useState(initSecs);
+  const [total, setTotal] = useState(initSecs);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Wall-clock end time — survives background throttling
+  const endTimeRef = useRef<number>(Date.now() + initSecs * 1000);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  function triggerFinished() {
+    if ("vibrate" in navigator) navigator.vibrate([200, 100, 200]);
+    playAlert(audioCtx);
+    onCloseRef.current();
+  }
 
   function startCountdown(seconds: number) {
+    localStorage.setItem(REST_DURATION_KEY, String(seconds));
     if (intervalRef.current) clearInterval(intervalRef.current);
+    endTimeRef.current = Date.now() + seconds * 1000;
     setRemaining(seconds);
     setTotal(seconds);
+
     intervalRef.current = setInterval(() => {
-      setRemaining((r) => {
-        if (r <= 1) {
-          clearInterval(intervalRef.current!);
-          if ("vibrate" in navigator) navigator.vibrate([200, 100, 200]);
-          onClose();
-          return 0;
-        }
-        return r - 1;
-      });
+      const r = Math.ceil((endTimeRef.current - Date.now()) / 1000);
+      if (r <= 0) {
+        clearInterval(intervalRef.current!);
+        setRemaining(0);
+        triggerFinished();
+      } else {
+        setRemaining(r);
+      }
     }, 1000);
   }
 
   useEffect(() => {
-    startCountdown(initialSeconds);
+    startCountdown(initSecs);
+
+    // When returning from another app, recalculate immediately
+    function onVisibilityChange() {
+      if (document.hidden) return;
+      // Re-unlock AudioContext on iOS after coming back from background
+      audioCtx?.resume().catch(() => {});
+      const r = Math.ceil((endTimeRef.current - Date.now()) / 1000);
+      if (r <= 0) {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        setRemaining(0);
+        triggerFinished();
+      } else {
+        setRemaining(r);
+      }
+    }
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

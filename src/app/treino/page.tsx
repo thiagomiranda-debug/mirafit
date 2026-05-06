@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { getExercisesByIds, updateRoutineExercise } from "@/lib/workouts";
@@ -25,6 +25,15 @@ type ExerciseInput = {
   exercise_id: string;
   sets: SetInput[];
 };
+
+function formatElapsed(secs: number): string {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  if (h > 0)
+    return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+}
 
 function summarizeSets(sets: SetPerformance[]): string {
   if (sets.length === 0) return "";
@@ -71,6 +80,9 @@ function TreinoContent() {
     exerciseName: string;
     nextPreview: NextPreview | null;
   } | null>(null);
+  const trainingStartRef = useRef<number | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  const audioCtxRef = useRef<AudioContext | null>(null);
   const [swapModal, setSwapModal] = useState<{ exIdx: number; exerciseId: string; muscle: string } | null>(null);
   const [notes, setNotes] = useState("");
   const [locationType, setLocationType] = useState<LocationType>("gym");
@@ -142,6 +154,15 @@ function TreinoContent() {
     if (user) loadRoutine();
   }, [user, loadRoutine]);
 
+  useEffect(() => {
+    if (!training) return;
+    if (!trainingStartRef.current) trainingStartRef.current = Date.now();
+    const interval = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - trainingStartRef.current!) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [training]);
+
   function updateSetInput(
     exIdx: number,
     setIdx: number,
@@ -157,6 +178,28 @@ function TreinoContent() {
     });
   }
 
+  function unlockAudio() {
+    if (audioCtxRef.current && audioCtxRef.current.state !== "closed") return;
+    try {
+      const AudioCtxCtor =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext })
+          .webkitAudioContext;
+      const ctx = new AudioCtxCtor();
+      audioCtxRef.current = ctx;
+      // Play a silent buffer to satisfy iOS gesture requirement
+      ctx.resume().then(() => {
+        const buf = ctx.createBuffer(1, 1, 22050);
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(ctx.destination);
+        src.start(0);
+      });
+    } catch {
+      // audio not supported
+    }
+  }
+
   function markSetDone(exIdx: number, setIdx: number) {
     const wasDone = inputs[exIdx].sets[setIdx].done;
     setInputs((prev) => {
@@ -167,6 +210,7 @@ function TreinoContent() {
       return next;
     });
     if (!wasDone) {
+      unlockAudio();
       const exId = inputs[exIdx].exercise_id;
       const lib = exercises[exId];
       const name = lib ? translateExerciseName(lib.name) : exId.replace(/-/g, " ");
@@ -377,7 +421,19 @@ function TreinoContent() {
               </p>
             </div>
           </div>
-          {!training && (
+          {training ? (
+            <div className="flex items-center gap-1.5 rounded-xl bg-[var(--surface-2)] px-3 py-1.5">
+              <svg className="h-3.5 w-3.5 text-[var(--amber-500)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span
+                className="text-sm font-bold text-[var(--amber-500)]"
+                style={{ fontFamily: "var(--font-bebas)", letterSpacing: "0.05em" }}
+              >
+                {formatElapsed(elapsed)}
+              </span>
+            </div>
+          ) : (
             <button
               onClick={() => setTraining(true)}
               className="rounded-xl px-4 py-2 text-xs font-bold text-white gradient-red transition-all hover:shadow-md hover:shadow-[var(--red-600)]/20"
@@ -501,6 +557,7 @@ function TreinoContent() {
           exerciseName={restTimer.exerciseName}
           nextPreview={restTimer.nextPreview}
           onClose={() => setRestTimer(null)}
+          audioCtx={audioCtxRef.current}
         />
       )}
 
