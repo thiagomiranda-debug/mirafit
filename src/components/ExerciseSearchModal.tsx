@@ -254,7 +254,7 @@ export default function ExerciseSearchModal({
                           </svg>
                         </div>
                         <img
-                          src={`https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/${ex.id}/0.jpg`}
+                          src={ex.gif_url}
                           alt={translateExerciseName(ex.name)}
                           loading="lazy"
                           onError={() => setImgErrors((prev) => new Set(prev).add(ex.id))}
