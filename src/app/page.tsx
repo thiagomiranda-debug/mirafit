@@ -15,7 +15,7 @@ import {
   alreadyShownToday,
   dismissReminderBanner,
 } from "@/lib/notifications";
-import { UserProfile, Workout, Routine, LocationType, CyclePhase } from "@/types";
+import { UserProfile, Workout, Routine, WorkoutLog, LocationType, CyclePhase } from "@/types";
 import BottomNav from "@/components/BottomNav";
 import WorkoutConfigModal from "@/components/WorkoutConfigModal";
 import CycleProtectionModal from "@/components/CycleProtectionModal";
@@ -34,6 +34,16 @@ function toDate(value: unknown): Date | null {
     if (typeof toDateFn === 'function') return toDateFn.call(value);
   }
   return null;
+}
+
+/** Retorna a próxima rotina no ciclo com base na última registrada no histórico. */
+function nextRoutineFromHistory(routines: Routine[], logs: WorkoutLog[]): Routine | undefined {
+  if (!routines?.length) return undefined;
+  const names = routines.map((r) => r.name);
+  const lastDone = logs.find((l) => names.includes(l.routine_name));
+  if (!lastDone) return routines[0];
+  const idx = names.indexOf(lastDone.routine_name);
+  return routines[(idx + 1) % routines.length];
 }
 
 type ActiveWorkout = Workout & { routines: Routine[] };
@@ -60,6 +70,7 @@ export default function Home() {
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [showBuilderModal, setShowBuilderModal] = useState(false);
   const [locationType, setLocationType] = useState<LocationType>("gym");
+  const [recentLogs, setRecentLogs] = useState<WorkoutLog[]>([]);
 
   useEffect(() => {
     const stored = localStorage.getItem("mirafit_location") as LocationType | null;
@@ -92,12 +103,13 @@ export default function Home() {
     getWorkoutLogs(user.uid, 30).then((logs) => {
       const data = calculateStreak(logs);
       setStreak(data);
+      setRecentLogs(logs);
 
       const perm = notificationPermission();
       if (perm === "default" && !alreadyShownToday(user.uid)) {
         setShowNotifBanner(true);
       } else if (perm === "granted" && !data.trainedToday && w && !alreadyShownToday(user.uid)) {
-        const nextRoutine = w.routines?.[0];
+        const nextRoutine = nextRoutineFromHistory(w.routines ?? [], logs);
         showTrainingReminder(nextRoutine?.name || "seu treino", user.uid);
       }
     });
@@ -162,7 +174,7 @@ export default function Home() {
     setShowNotifBanner(false);
     dismissReminderBanner(user.uid);
     if (granted && workout && streak && !streak.trainedToday) {
-      const nextRoutine = workout.routines?.[0];
+      const nextRoutine = nextRoutineFromHistory(workout.routines ?? [], recentLogs);
       showTrainingReminder(nextRoutine?.name || "seu treino", user.uid);
     }
   }
