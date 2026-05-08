@@ -53,7 +53,7 @@ function getSavedDuration(fallback: number): number {
 
 export default function RestTimer({
   exerciseName,
-  initialSeconds = 90,
+  initialSeconds = 60,
   onClose,
   nextPreview,
   audioCtx,
@@ -173,7 +173,7 @@ export default function RestTimer({
 
         {/* Preset buttons */}
         <div className="mb-4 flex gap-2">
-          {[60, 90, 120].map((s) => (
+          {[30, 45, 60].map((s) => (
             <button
               key={s}
               onClick={() => startCountdown(s)}

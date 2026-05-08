@@ -555,7 +555,7 @@ export default function LandingPage() {
         <section className="lp-section lp-vs" id="problema">
           <div className="lp-section-inner">
             <div className="reveal">
-              <span className="lp-section-tag">// A Realidade do Militar</span>
+              <span className="lp-section-tag">{"// A Realidade do Militar"}</span>
               <h2 className="lp-section-title">
                 TREINAR NA FOLGA<br />
                 <span className="lp-text-gradient">É FÁCIL.</span>
@@ -616,7 +616,7 @@ export default function LandingPage() {
         <section className="lp-section lp-modes" id="modos">
           <div className="lp-section-inner">
             <div className="reveal">
-              <span className="lp-section-tag">// Três Engrenagens do Sistema</span>
+              <span className="lp-section-tag">{"// Três Engrenagens do Sistema"}</span>
               <h2 className="lp-section-title">
                 UM APP.<br />
                 <span className="lp-text-gradient">TRÊS MISSÕES.</span>
@@ -637,7 +637,7 @@ export default function LandingPage() {
                 <span className="lp-mode-emoji">🔥</span>
                 <span className="lp-mode-kicker red">Modo Quartel</span>
                 <h3 className="lp-mode-title">Para os Dias<br />de Plantão</h3>
-                <p className="lp-mode-tagline">"Otimizado para o maquinário do 4º BBM."</p>
+                <p className="lp-mode-tagline">&ldquo;Otimizado para o maquinário do 4º BBM.&rdquo;</p>
                 <p className="lp-mode-text">
                   O motor gera treinos táticos e compactos usando exatamente o que
                   existe na academia do batalhão —{" "}
@@ -656,7 +656,7 @@ export default function LandingPage() {
                 <span className="lp-mode-emoji">🏋️</span>
                 <span className="lp-mode-kicker amber">Modo Academia</span>
                 <h3 className="lp-mode-title">Para os Dias<br />de Folga</h3>
-                <p className="lp-mode-tagline">"Liberdade e Periodização."</p>
+                <p className="lp-mode-tagline">&ldquo;Liberdade e Periodização.&rdquo;</p>
                 <p className="lp-mode-text">
                   Treina na academia de bairro na folga? O app gera divisões
                   completas — ABCD e variações — com periodização automática
@@ -675,7 +675,7 @@ export default function LandingPage() {
                 <span className="lp-mode-emoji">🏆</span>
                 <span className="lp-mode-kicker red">Modo TAF</span>
                 <h3 className="lp-mode-title">A Sua Nota<br />no Edital</h3>
-                <p className="lp-mode-tagline">"Não adivinhe sua nota. Tenha certeza."</p>
+                <p className="lp-mode-tagline">&ldquo;Não adivinhe sua nota. Tenha certeza.&rdquo;</p>
                 <p className="lp-mode-text">
                   O edital vigente{" "}
                   <strong style={{ color: "#F5F5F7" }}>BGO Nº 145</strong>{" "}
@@ -696,7 +696,7 @@ export default function LandingPage() {
         <section className="lp-section lp-vantagens" id="vantagens">
           <div className="lp-section-inner">
             <div className="reveal">
-              <span className="lp-section-tag">// Métricas e Performance</span>
+              <span className="lp-section-tag">{"// Métricas e Performance"}</span>
               <h2 className="lp-section-title">
                 CADA DETALHE<br />
                 <span className="lp-text-gradient">IMPORTA.</span>
@@ -726,7 +726,7 @@ export default function LandingPage() {
                 {
                   icon: "⏱️",
                   title: "Timer de Descanso Automático",
-                  text: "Ao marcar um set concluído, o temporizador de descanso de 90s abre automaticamente e vibra quando o tempo acaba. Foco total no treino.",
+                  text: "Ao marcar um set concluído, o temporizador de descanso abre automaticamente e vibra quando o tempo acaba. Escolha entre 30s, 45s ou 60s. Foco total no treino.",
                   delay: "reveal-d4",
                 },
               ].map(({ icon, title, text, delay }) => (
@@ -746,7 +746,7 @@ export default function LandingPage() {
         <section className="lp-section lp-install" id="instalacao">
           <div className="lp-section-inner">
             <div className="reveal">
-              <span className="lp-section-tag">// Manual de Instalação Rápida</span>
+              <span className="lp-section-tag">{"// Manual de Instalação Rápida"}</span>
               <h2 className="lp-section-title">
                 INSTALE EM<br />
                 <span className="lp-text-gradient">30 SEGUNDOS.</span>

@@ -559,6 +559,25 @@ function TreinoContent() {
   );
 }
 
+// ─── Share card canvas helper ─────────────────────────────────────────────────
+
+function rrect(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number, r: number
+) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+}
+
 // ─── WorkoutComplete ──────────────────────────────────────────────────────────
 
 const MOTIVATIONAL_QUOTES = [
@@ -599,9 +618,8 @@ function WorkoutComplete({
     return { totalDone, totalPossible, totalVolume, totalReps, exercisesCompleted, pct };
   }, [inputs]);
 
-  const quote = useMemo(
-    () => MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)],
-    []
+  const [quote] = useState(
+    () => MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]
   );
 
   const evalMessage = useMemo(() => {
@@ -636,7 +654,206 @@ function WorkoutComplete({
     []
   );
 
+  async function generateShareCard(): Promise<Blob | null> {
+    try {
+      await document.fonts.ready;
+
+      const W = 1080;
+      const H = 1920;
+      const M = 80; // margin
+      const CW = W - M * 2; // content width
+
+      const canvas = document.createElement("canvas");
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+
+      // ── Background ──
+      const bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, "#0c0b0b");
+      bg.addColorStop(0.5, "#100d0d");
+      bg.addColorStop(1, "#0c0b0b");
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // Red glow
+      const glowY = H * 0.37;
+      const redGlow = ctx.createRadialGradient(W / 2, glowY, 0, W / 2, glowY, 520);
+      redGlow.addColorStop(0, "rgba(220,38,38,0.22)");
+      redGlow.addColorStop(0.55, "rgba(220,38,38,0.09)");
+      redGlow.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = redGlow;
+      ctx.fillRect(0, 0, W, H);
+
+      // Amber inner glow
+      const amberGlow = ctx.createRadialGradient(W / 2, glowY, 0, W / 2, glowY, 270);
+      amberGlow.addColorStop(0, "rgba(245,158,11,0.15)");
+      amberGlow.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = amberGlow;
+      ctx.fillRect(0, 0, W, H);
+
+      // Subtle dot grid
+      ctx.fillStyle = "rgba(255,255,255,0.013)";
+      for (let row = 0; row < H; row += 60) {
+        for (let col = 0; col < W; col += 60) {
+          ctx.fillRect(col, row, 1.5, 1.5);
+        }
+      }
+
+      // ── Logo / Brand ──
+      ctx.textAlign = "center";
+      ctx.letterSpacing = "14px";
+      ctx.font = `bold 62px "Bebas Neue", sans-serif`;
+      ctx.fillStyle = "#f5f5f7";
+      ctx.fillText("MIRAFIT", W / 2, 158);
+      ctx.letterSpacing = "0px";
+
+      // Thin separator
+      ctx.strokeStyle = "rgba(255,255,255,0.08)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(M + 60, 182);
+      ctx.lineTo(W - M - 60, 182);
+      ctx.stroke();
+
+      // ── Trophy emoji ──
+      ctx.font = "190px serif";
+      ctx.fillText("🏆", W / 2, 456);
+
+      // ── Title ──
+      ctx.letterSpacing = "6px";
+      ctx.font = `bold 174px "Bebas Neue", sans-serif`;
+      ctx.fillStyle = "#f5f5f7";
+      ctx.fillText("TREINO", W / 2, 638);
+      ctx.fillText("CONCLUÍDO!", W / 2, 806);
+      ctx.letterSpacing = "0px";
+
+      // ── Quote ──
+      ctx.letterSpacing = "3px";
+      ctx.font = `bold 37px "Outfit", sans-serif`;
+      ctx.fillStyle = "#f59e0b";
+      let q = quote.toUpperCase();
+      while (ctx.measureText(q).width > CW - 20 && q.length > 8) q = q.slice(0, -1);
+      ctx.fillText(q, W / 2, 898);
+      ctx.letterSpacing = "0px";
+
+      // ── Routine name ──
+      ctx.font = `33px "Outfit", sans-serif`;
+      ctx.fillStyle = "rgba(255,255,255,0.33)";
+      let rn = routineName;
+      while (ctx.measureText(rn).width > CW && rn.length > 5) rn = rn.slice(0, -1) + "…";
+      ctx.fillText(rn, W / 2, 960);
+
+      // ── Eval message card ──
+      ctx.fillStyle = "rgba(255,255,255,0.04)";
+      rrect(ctx, M, 1000, CW, 130, 28);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.08)";
+      ctx.lineWidth = 1.5;
+      rrect(ctx, M, 1000, CW, 130, 28);
+      ctx.stroke();
+
+      ctx.font = `34px "Outfit", sans-serif`;
+      ctx.fillStyle = "rgba(255,255,255,0.62)";
+      ctx.fillText(evalMessage, W / 2, 1074);
+
+      // ── Stats 2×2 grid ──
+      const cardW = (CW - 36) / 2;
+      const cardH = 216;
+      const gY = 1168;
+
+      const statsItems = [
+        { icon: "🔥", label: "SÉRIES",     value: `${stats.totalDone}/${stats.totalPossible}`, red: true  },
+        { icon: "⚡", label: stats.totalVolume > 0 ? "VOLUME" : "REPS TOTAIS", value: volumeStr, red: false },
+        { icon: "⏱", label: "DURAÇÃO",    value: formatElapsed(elapsed),          red: true  },
+        { icon: "💪", label: "EXERCÍCIOS", value: String(stats.exercisesCompleted), red: false },
+      ];
+
+      statsItems.forEach((s, i) => {
+        const col = i % 2;
+        const row = Math.floor(i / 2);
+        const cx = M + col * (cardW + 36);
+        const cy = gY + row * (cardH + 28);
+        const accent = s.red ? "#ef4444" : "#f59e0b";
+
+        ctx.fillStyle = s.red ? "rgba(220,38,38,0.09)" : "rgba(245,158,11,0.09)";
+        rrect(ctx, cx, cy, cardW, cardH, 28);
+        ctx.fill();
+
+        ctx.strokeStyle = s.red ? "rgba(239,68,68,0.28)" : "rgba(245,158,11,0.28)";
+        ctx.lineWidth = 1.5;
+        rrect(ctx, cx, cy, cardW, cardH, 28);
+        ctx.stroke();
+
+        const mid = cx + cardW / 2;
+        ctx.textAlign = "center";
+
+        ctx.font = "58px serif";
+        ctx.fillText(s.icon, mid, cy + 74);
+
+        ctx.font = `bold 94px "Bebas Neue", sans-serif`;
+        ctx.fillStyle = accent;
+        ctx.fillText(s.value, mid, cy + 164);
+
+        ctx.letterSpacing = "2px";
+        ctx.font = `bold 27px "Outfit", sans-serif`;
+        ctx.fillStyle = "rgba(255,255,255,0.33)";
+        ctx.fillText(s.label, mid, cy + 205);
+        ctx.letterSpacing = "0px";
+      });
+
+      // ── Footer ──
+      const dateStr = new Date().toLocaleDateString("pt-BR", {
+        day: "2-digit", month: "long", year: "numeric",
+      });
+      ctx.font = `30px "Outfit", sans-serif`;
+      ctx.fillStyle = "rgba(255,255,255,0.18)";
+      ctx.fillText(dateStr, W / 2, 1840);
+
+      ctx.font = `bold 38px "Outfit", sans-serif`;
+      ctx.fillStyle = "rgba(255,255,255,0.28)";
+      ctx.fillText("mirafit.app", W / 2, 1890);
+
+      return new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/png")
+      );
+    } catch (err) {
+      console.error("generateShareCard:", err);
+      return null;
+    }
+  }
+
   async function handleShare() {
+    const blob = await generateShareCard();
+
+    if (blob) {
+      const file = new File([blob], "mirafit-treino.png", { type: "image/png" });
+
+      if (
+        typeof navigator.share === "function" &&
+        typeof navigator.canShare === "function" &&
+        navigator.canShare({ files: [file] })
+      ) {
+        try {
+          await navigator.share({ files: [file], title: "MiraFit – Treino Concluído!" });
+          return;
+        } catch {
+          // dismissed — fall through to download
+        }
+      }
+
+      // Fallback: download the image
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "mirafit-treino.png";
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    // Canvas failed — text fallback
     const volumeLabel = stats.totalVolume > 0 ? `${volumeStr} de volume` : `${stats.totalReps} reps`;
     const text = [
       `💪 Treino concluído no MiraFit!`,
@@ -648,15 +865,13 @@ function WorkoutComplete({
       try {
         await navigator.share({ title: "MiraFit – Treino Concluído!", text });
         return;
-      } catch {
-        // dismissed — fall through to clipboard
-      }
+      } catch { /* dismissed */ }
     }
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
-    } catch { /* clipboard unavailable */ }
+    } catch { /* unavailable */ }
   }
 
   return (
