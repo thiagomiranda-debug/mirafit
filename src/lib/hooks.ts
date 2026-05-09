@@ -47,18 +47,23 @@ export function useCountUp(target: number, duration = 600): number {
   return value;
 }
 
+function getGreetingByHour(): string {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 12) return "Bom dia";
+  if (h >= 12 && h < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
 /**
  * Saudação contextual baseada na hora local. Use no header da Home.
  */
 export function useGreeting(): string {
-  const [greeting, setGreeting] = useState("Bem-vindo");
-
-  useEffect(() => {
-    const h = new Date().getHours();
-    if (h >= 5 && h < 12) setGreeting("Bom dia");
-    else if (h >= 12 && h < 18) setGreeting("Boa tarde");
-    else setGreeting("Boa noite");
-  }, []);
+  // Lazy initializer: lê o horário uma vez no mount (cliente),
+  // evitando setState síncrono dentro de effect.
+  const [greeting] = useState<string>(() => {
+    if (typeof window === "undefined") return "Bem-vindo";
+    return getGreetingByHour();
+  });
 
   return greeting;
 }
