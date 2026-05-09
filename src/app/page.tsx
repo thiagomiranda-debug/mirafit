@@ -20,6 +20,7 @@ import BottomNav from "@/components/BottomNav";
 import WorkoutConfigModal from "@/components/WorkoutConfigModal";
 import CycleProtectionModal from "@/components/CycleProtectionModal";
 import HomeBuilderModal from "@/components/HomeBuilderModal";
+import HomeSkeleton from "@/components/skeletons/HomeSkeleton";
 
 /** Normaliza Firestore Timestamp (objeto com seconds) ou Date para Date. */
 function toDate(value: unknown): Date | null {
@@ -185,11 +186,7 @@ export default function Home() {
   }
 
   if (loading || pageLoading) {
-    return (
-      <div className="flex flex-1 items-center justify-center bg-[var(--background)]">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--red-500)] border-t-transparent" />
-      </div>
-    );
+    return <HomeSkeleton />;
   }
 
   if (!user) return null;

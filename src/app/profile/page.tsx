@@ -14,6 +14,7 @@ import ProgressChart from "@/components/ProgressChart";
 import WorkoutHeatmap from "@/components/WorkoutHeatmap";
 import WeekComparison from "@/components/WeekComparison";
 import { TafGender, TafAgeGroup } from "@/lib/tafData";
+import ProfileSkeleton from "@/components/skeletons/ProfileSkeleton";
 
 const GOALS = [
   "Hipertrofia (ganho de massa)",
@@ -202,11 +203,7 @@ export default function ProfilePage() {
   }
 
   if (authLoading || pageLoading) {
-    return (
-      <div className="flex flex-1 items-center justify-center bg-[var(--background)]">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--red-500)] border-t-transparent" />
-      </div>
-    );
+    return <ProfileSkeleton />;
   }
 
   return (

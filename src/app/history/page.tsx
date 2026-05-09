@@ -10,6 +10,7 @@ import { translateExerciseName } from "@/lib/exerciseNames";
 import ExerciseChart, { ChartDataPoint } from "@/components/ExerciseChart";
 import MuscleAnalytics from "@/components/MuscleAnalytics";
 import BottomNav from "@/components/BottomNav";
+import HistorySkeleton from "@/components/skeletons/HistorySkeleton";
 
 type Tab = "treinos" | "evolucao" | "analise";
 
@@ -112,11 +113,7 @@ export default function HistoryPage() {
   );
 
   if (authLoading || loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center bg-[var(--background)]">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--red-500)] border-t-transparent" />
-      </div>
-    );
+    return <HistorySkeleton />;
   }
 
   if (loadError) {

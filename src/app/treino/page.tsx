@@ -14,6 +14,7 @@ import { translateExerciseName } from "@/lib/exerciseNames";
 import RestTimer, { NextPreview } from "@/components/RestTimer";
 import ExerciseSearchModal from "@/components/ExerciseSearchModal";
 import { epley1RM } from "@/lib/metrics";
+import TreinoSkeleton from "@/components/skeletons/TreinoSkeleton";
 
 type SetInput = {
   weight: string;
@@ -44,13 +45,7 @@ function summarizeSets(sets: SetPerformance[]): string {
 
 export default function TreinoPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex flex-1 items-center justify-center bg-[var(--background)]">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--red-500)] border-t-transparent" />
-        </div>
-      }
-    >
+    <Suspense fallback={<TreinoSkeleton />}>
       <TreinoContent />
     </Suspense>
   );
@@ -335,11 +330,7 @@ function TreinoContent() {
   }
 
   if (authLoading || loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center bg-[var(--background)]">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--red-500)] border-t-transparent" />
-      </div>
-    );
+    return <TreinoSkeleton />;
   }
 
   if (error && !routine) {
