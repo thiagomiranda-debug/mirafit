@@ -9,6 +9,7 @@ import ExerciseSearchModal from "@/components/ExerciseSearchModal";
 import ResolveUnmatchedModal from "@/components/ResolveUnmatchedModal";
 import { IMPORT_DRAFT_STORAGE_KEY } from "@/components/HomeBuilderModal";
 import type { ImportedWorkoutDraft } from "@/lib/pdfWorkoutImporter";
+import { haptic } from "@/lib/haptics";
 
 type BuilderExercise = {
   exercise_id: string;
@@ -272,16 +273,30 @@ function BuilderContent() {
 
         {/* Routine tabs */}
         <div className="animate-fade-in">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          <div
+            className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide rounded-2xl p-1"
+            style={{
+              background: "var(--surface-gradient)",
+              border: "1px solid var(--border-subtle)",
+            }}
+          >
             {routines.map((r, idx) => (
               <button
                 key={idx}
-                onClick={() => setActiveTab(idx)}
-                className={`group relative shrink-0 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
+                onClick={() => { haptic("light"); setActiveTab(idx); }}
+                className={`tactile group relative shrink-0 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
                   activeTab === idx
-                    ? "bg-[var(--red-600)] text-white shadow-md"
-                    : "border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] hover:border-[var(--red-500)]/30"
+                    ? "text-white shadow-md"
+                    : "text-[var(--text-muted)] hover:text-[var(--foreground)]"
                 }`}
+                style={
+                  activeTab === idx
+                    ? {
+                        background: "linear-gradient(135deg, var(--red-500), var(--red-600))",
+                        boxShadow: "var(--shadow-red)",
+                      }
+                    : {}
+                }
               >
                 {r.name}
                 {routines.length > 1 && activeTab === idx && (
@@ -334,11 +349,15 @@ function BuilderContent() {
                 return (
                   <div
                     key={`${ex.exercise_id || ex.unresolved?.raw_name || "ex"}-${exIdx}`}
-                    className={`animate-fade-in flex items-center gap-2 rounded-xl border bg-[var(--surface)] px-3 py-3 transition-all ${
+                    className={`animate-fade-in flex items-center gap-2 rounded-xl border px-3 py-3 transition-all ${
                       isUnresolved
                         ? "border-l-4 border-[var(--amber-500)]"
-                        : "border-[var(--border)]"
+                        : ""
                     }`}
+                    style={{
+                      background: "var(--surface-gradient)",
+                      border: isUnresolved ? undefined : "1px solid var(--border-subtle)",
+                    }}
                   >
                     <span
                       className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${
@@ -429,11 +448,12 @@ function BuilderContent() {
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[var(--border)] bg-[var(--surface)]/80 backdrop-blur-md">
         <div className="mx-auto max-w-md px-4 py-3" style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))" }}>
           <button
-            onClick={handleSave}
+            onClick={() => { haptic("medium"); handleSave(); }}
             disabled={!canSave || saving}
-            className={`flex w-full items-center justify-center gap-2.5 rounded-2xl py-4 text-sm font-bold text-white shadow-lg transition-all hover:shadow-xl disabled:opacity-50 ${
+            className={`tactile shimmer-overlay flex w-full items-center justify-center gap-2.5 rounded-2xl py-4 text-sm font-bold text-white shadow-lg transition-all hover:shadow-xl disabled:opacity-50 ${
               hasUnresolved ? "bg-[var(--amber-600)]" : "gradient-red"
             }`}
+            style={{ boxShadow: "var(--shadow-red)" }}
           >
             {saving ? (
               <>

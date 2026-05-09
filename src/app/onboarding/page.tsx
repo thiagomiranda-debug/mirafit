@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { saveUserProfile } from "@/lib/userProfile";
 import { UserProfile, RestrictionTag } from "@/types";
+import { haptic } from "@/lib/haptics";
 
 const STEPS = ["Pessoal", "Treino", "Objetivo"];
 
@@ -166,32 +167,22 @@ export default function OnboardingPage() {
 
         {/* Step indicators */}
         <div className="mt-4 flex items-center justify-center gap-2">
-          {STEPS.map((label, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <div className="flex flex-col items-center gap-1">
-                <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-xl text-xs font-bold transition-all ${
-                    i < step
-                      ? "bg-[var(--success)] text-white"
-                      : i === step
-                        ? "gradient-red text-white shadow-md shadow-[var(--red-600)]/20"
-                        : "bg-[var(--surface-2)] text-[var(--text-dim)]"
-                  }`}
-                >
-                  {i < step ? (
-                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  ) : (
-                    i + 1
-                  )}
-                </div>
-                <span className="text-[10px] font-semibold text-[var(--text-dim)]">{label}</span>
-              </div>
-              {i < STEPS.length - 1 && (
-                <div className={`mb-5 h-px w-8 ${i < step ? "bg-[var(--success)]" : "bg-[var(--border)]"}`} />
-              )}
-            </div>
+          {STEPS.map((_, i) => (
+            <div
+              key={i}
+              className="h-2 rounded-full transition-all duration-400"
+              style={{
+                width: i === step ? 32 : 8,
+                background:
+                  i === step
+                    ? "linear-gradient(90deg, var(--red-500), var(--amber-500))"
+                    : i < step
+                    ? "var(--red-600)"
+                    : "rgba(255,255,255,0.1)",
+                boxShadow: i === step ? "var(--glow-red)" : "none",
+                transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+              }}
+            />
           ))}
         </div>
       </div>
@@ -228,12 +219,22 @@ export default function OnboardingPage() {
               <Field label="Gênero">
                 <div className="grid grid-cols-2 gap-2">
                   {(["masculino", "feminino"] as const).map((g) => (
-                    <button key={g} type="button" onClick={() => set("gender", g)}
-                      className={`rounded-xl border py-2.5 text-sm font-semibold capitalize transition-all ${
+                    <button key={g} type="button"
+                      onClick={() => { haptic("light"); set("gender", g); }}
+                      className="tactile rounded-xl border py-2.5 text-sm font-semibold capitalize transition-all"
+                      style={
                         form.gender === g
-                          ? "border-[var(--red-500)] bg-[var(--red-600)]/15 text-[var(--red-500)]"
-                          : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] hover:border-[var(--border-light)]"
-                      }`}>
+                          ? {
+                              background: "var(--surface-gradient-active)",
+                              border: "1px solid var(--border-active)",
+                              boxShadow: "0 0 16px rgba(239,68,68,0.20)",
+                              color: "var(--red-500)",
+                            }
+                          : {
+                              background: "var(--surface-gradient)",
+                              border: "1px solid var(--border-subtle)",
+                            }
+                      }>
                       {g === "masculino" ? "Masculino" : "Feminino"}
                     </button>
                   ))}
@@ -243,12 +244,22 @@ export default function OnboardingPage() {
               <Field label="Nível de experiência">
                 <div className="grid grid-cols-3 gap-2">
                   {(["iniciante", "intermediario", "avancado"] as const).map((lvl) => (
-                    <button key={lvl} type="button" onClick={() => set("level", lvl)}
-                      className={`rounded-xl border py-2.5 text-sm font-semibold capitalize transition-all ${
+                    <button key={lvl} type="button"
+                      onClick={() => { haptic("light"); set("level", lvl); }}
+                      className="tactile rounded-xl border py-2.5 text-sm font-semibold capitalize transition-all"
+                      style={
                         form.level === lvl
-                          ? "border-[var(--red-500)] bg-[var(--red-600)]/15 text-[var(--red-500)]"
-                          : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] hover:border-[var(--border-light)]"
-                      }`}>
+                          ? {
+                              background: "var(--surface-gradient-active)",
+                              border: "1px solid var(--border-active)",
+                              boxShadow: "0 0 16px rgba(239,68,68,0.20)",
+                              color: "var(--red-500)",
+                            }
+                          : {
+                              background: "var(--surface-gradient)",
+                              border: "1px solid var(--border-subtle)",
+                            }
+                      }>
                       {lvl === "iniciante" ? "Iniciante" : lvl === "intermediario" ? "Intermediário" : "Avançado"}
                     </button>
                   ))}
@@ -271,12 +282,22 @@ export default function OnboardingPage() {
               <Field label="Dias de treino por semana">
                 <div className="flex gap-2">
                   {[2, 3, 4, 5, 6].map((d) => (
-                    <button key={d} type="button" onClick={() => set("days_per_week", String(d))}
-                      className={`flex-1 rounded-xl border py-2.5 text-sm font-bold transition-all ${
+                    <button key={d} type="button"
+                      onClick={() => { haptic("light"); set("days_per_week", String(d)); }}
+                      className="tactile flex-1 rounded-xl border py-2.5 text-sm font-bold transition-all"
+                      style={
                         form.days_per_week === String(d)
-                          ? "border-[var(--red-500)] bg-[var(--red-600)]/15 text-[var(--red-500)]"
-                          : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] hover:border-[var(--border-light)]"
-                      }`}>
+                          ? {
+                              background: "var(--surface-gradient-active)",
+                              border: "1px solid var(--border-active)",
+                              boxShadow: "0 0 16px rgba(239,68,68,0.20)",
+                              color: "var(--red-500)",
+                            }
+                          : {
+                              background: "var(--surface-gradient)",
+                              border: "1px solid var(--border-subtle)",
+                            }
+                      }>
                       {d}x
                     </button>
                   ))}
@@ -286,12 +307,22 @@ export default function OnboardingPage() {
               <Field label="Tempo por sessão (minutos)">
                 <div className="flex gap-2">
                   {[45, 60, 75, 90].map((t) => (
-                    <button key={t} type="button" onClick={() => set("time_per_session", String(t))}
-                      className={`flex-1 rounded-xl border py-2.5 text-sm font-bold transition-all ${
+                    <button key={t} type="button"
+                      onClick={() => { haptic("light"); set("time_per_session", String(t)); }}
+                      className="tactile flex-1 rounded-xl border py-2.5 text-sm font-bold transition-all"
+                      style={
                         form.time_per_session === String(t)
-                          ? "border-[var(--red-500)] bg-[var(--red-600)]/15 text-[var(--red-500)]"
-                          : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] hover:border-[var(--border-light)]"
-                      }`}>
+                          ? {
+                              background: "var(--surface-gradient-active)",
+                              border: "1px solid var(--border-active)",
+                              boxShadow: "0 0 16px rgba(239,68,68,0.20)",
+                              color: "var(--red-500)",
+                            }
+                          : {
+                              background: "var(--surface-gradient)",
+                              border: "1px solid var(--border-subtle)",
+                            }
+                      }>
                       {t}
                     </button>
                   ))}
@@ -308,12 +339,22 @@ export default function OnboardingPage() {
               <Field label="Objetivo principal">
                 <div className="space-y-2">
                   {GOALS.map((g) => (
-                    <button key={g} type="button" onClick={() => set("goal", g)}
-                      className={`w-full rounded-xl border px-4 py-3 text-left text-sm font-semibold transition-all ${
+                    <button key={g} type="button"
+                      onClick={() => { haptic("light"); set("goal", g); }}
+                      className="tactile w-full rounded-xl border px-4 py-3 text-left text-sm font-semibold transition-all"
+                      style={
                         form.goal === g
-                          ? "border-[var(--red-500)] bg-[var(--red-600)]/15 text-[var(--red-500)]"
-                          : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] hover:border-[var(--border-light)]"
-                      }`}>
+                          ? {
+                              background: "var(--surface-gradient-active)",
+                              border: "1px solid var(--border-active)",
+                              boxShadow: "0 0 16px rgba(239,68,68,0.20)",
+                              color: "var(--red-500)",
+                            }
+                          : {
+                              background: "var(--surface-gradient)",
+                              border: "1px solid var(--border-subtle)",
+                            }
+                      }>
                       {g}
                     </button>
                   ))}
@@ -335,12 +376,22 @@ export default function OnboardingPage() {
                   {RESTRICTION_OPTIONS.map(({ tag, label }) => {
                     const active = form.medical_restriction_tags.includes(tag);
                     return (
-                      <button key={tag} type="button" onClick={() => toggleRestriction(tag)}
-                        className={`rounded-xl border py-2.5 text-sm font-semibold transition-all ${
+                      <button key={tag} type="button"
+                        onClick={() => { haptic("light"); toggleRestriction(tag); }}
+                        className="tactile rounded-xl border py-2.5 text-sm font-semibold transition-all"
+                        style={
                           active
-                            ? "border-[var(--red-500)] bg-[var(--red-600)]/15 text-[var(--red-500)]"
-                            : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] hover:border-[var(--border-light)]"
-                        }`}>
+                            ? {
+                                background: "var(--surface-gradient-active)",
+                                border: "1px solid var(--border-active)",
+                                boxShadow: "0 0 16px rgba(239,68,68,0.20)",
+                                color: "var(--red-500)",
+                              }
+                            : {
+                                background: "var(--surface-gradient)",
+                                border: "1px solid var(--border-subtle)",
+                              }
+                        }>
                         {label}
                       </button>
                     );
