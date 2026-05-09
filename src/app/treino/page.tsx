@@ -208,6 +208,7 @@ function TreinoContent() {
     });
     if (!wasDone) {
       unlockAudio();
+      haptic("medium");
       const exId = inputs[exIdx].exercise_id;
       const lib = exercises[exId];
       const name = lib ? translateExerciseName(lib.name) : exId.replace(/-/g, " ");
@@ -1266,7 +1267,7 @@ function ExerciseCard({
               <span />
             </div>
 
-            {setInputs.map((s, si) => {
+            {setInputs.map((s, sIdx) => {
               const w = parseFloat(s.weight);
               const r = parseInt(s.reps);
               const current1RM =
@@ -1274,61 +1275,106 @@ function ExerciseCard({
               const isNewPR =
                 current1RM > personalRecord && current1RM > 0 && !s.done;
 
-              return (
-                <div key={si}>
-                  <div className="grid items-center gap-2" style={{ gridTemplateColumns: "2rem 1fr 1fr 2.5rem" }}>
-                    {/* Set badge */}
-                    <span
-                      className={`flex h-8 w-8 items-center justify-center rounded-xl text-xs font-bold transition-all ${
-                        s.done
-                          ? "bg-[var(--success)] text-white"
-                          : "bg-[var(--surface-2)] text-[var(--text-dim)]"
-                      }`}
-                    >
-                      {si + 1}
-                    </span>
+              // Estado: done | active (próximo a ser feito) | pending
+              const isDone = s.done;
+              const firstPendingIdx = setInputs.findIndex((x) => !x.done);
+              const isSetActive = training && !isDone && sIdx === firstPendingIdx;
 
-                    {/* Weight */}
+              return (
+                <div key={sIdx}>
+                  <div
+                    className="grid items-center gap-2 rounded-lg px-2 py-1.5 transition-all"
+                    style={{
+                      gridTemplateColumns: "20px 1fr 1fr 32px",
+                      background: isDone
+                        ? "rgba(34,197,94,0.06)"
+                        : isSetActive
+                        ? "rgba(239,68,68,0.06)"
+                        : "rgba(255,255,255,0.02)",
+                      border: `1px solid ${
+                        isDone
+                          ? "rgba(34,197,94,0.2)"
+                          : isSetActive
+                          ? "rgba(239,68,68,0.4)"
+                          : "rgba(255,255,255,0.04)"
+                      }`,
+                      boxShadow: isSetActive ? "0 0 0 1px rgba(239,68,68,0.2)" : "none",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: "var(--font-bebas)",
+                        fontSize: "0.95rem",
+                        textAlign: "center",
+                        color: isDone
+                          ? "var(--success)"
+                          : isSetActive
+                          ? "var(--red-500)"
+                          : "var(--text-muted)",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {sIdx + 1}
+                    </span>
                     <input
                       type="number"
                       inputMode="decimal"
-                      placeholder="0"
+                      placeholder="kg"
                       value={s.weight}
-                      onChange={(e) => onSetUpdate(si, "weight", e.target.value)}
-                      disabled={s.done}
-                      className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-2 py-2.5 text-center text-sm font-bold text-[var(--foreground)] placeholder-[var(--text-dim)] focus:border-[var(--red-500)] focus:outline-none focus:ring-1 focus:ring-[var(--red-500)] disabled:opacity-50"
+                      onChange={(e) => onSetUpdate(sIdx, "weight", e.target.value)}
+                      disabled={!training}
+                      className="rounded-lg bg-transparent px-2 py-1.5 text-center text-[var(--foreground)] placeholder-[var(--text-dim)] focus:outline-none disabled:opacity-60"
+                      style={{
+                        fontFamily: "var(--font-bebas)",
+                        fontSize: "0.95rem",
+                        letterSpacing: "0.04em",
+                        border: `1px solid ${
+                          s.weight ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.06)"
+                        }`,
+                        background: s.weight ? "rgba(255,255,255,0.03)" : "transparent",
+                      }}
                     />
-
-                    {/* Reps */}
                     <input
                       type="number"
                       inputMode="numeric"
-                      placeholder="0"
+                      placeholder="reps"
                       value={s.reps}
-                      onChange={(e) => onSetUpdate(si, "reps", e.target.value)}
-                      disabled={s.done}
-                      className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-2 py-2.5 text-center text-sm font-bold text-[var(--foreground)] placeholder-[var(--text-dim)] focus:border-[var(--red-500)] focus:outline-none focus:ring-1 focus:ring-[var(--red-500)] disabled:opacity-50"
+                      onChange={(e) => onSetUpdate(sIdx, "reps", e.target.value)}
+                      disabled={!training}
+                      className="rounded-lg bg-transparent px-2 py-1.5 text-center text-[var(--foreground)] placeholder-[var(--text-dim)] focus:outline-none disabled:opacity-60"
+                      style={{
+                        fontFamily: "var(--font-bebas)",
+                        fontSize: "0.95rem",
+                        letterSpacing: "0.04em",
+                        border: `1px solid ${
+                          s.reps ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.06)"
+                        }`,
+                        background: s.reps ? "rgba(255,255,255,0.03)" : "transparent",
+                      }}
                     />
-
-                    {/* Done toggle */}
                     <button
-                      onClick={() => onSetDone(si)}
-                      aria-label={s.done ? "Desmarcar série" : "Marcar série como concluída"}
-                      className={`flex h-10 w-10 items-center justify-center rounded-xl border-2 transition-all active:scale-95 ${
-                        s.done
-                          ? "border-[var(--success)] bg-[var(--success)] text-white shadow-[0_0_10px_rgba(34,197,94,0.3)]"
-                          : "border-[var(--red-500)]/60 bg-[var(--red-500)]/10 text-[var(--red-500)]"
-                      }`}
+                      type="button"
+                      onClick={() => training && onSetDone(sIdx)}
+                      disabled={!training}
+                      className="tactile flex h-7 w-7 items-center justify-center rounded-lg transition-all disabled:opacity-50"
+                      style={
+                        isDone
+                          ? {
+                              background: "linear-gradient(135deg, #22C55E, #16A34A)",
+                              border: "1.5px solid #22C55E",
+                              boxShadow: "var(--glow-success)",
+                            }
+                          : {
+                              background: "rgba(255,255,255,0.04)",
+                              border: "1.5px solid rgba(255,255,255,0.08)",
+                            }
+                      }
                     >
-                      <svg
-                        className="h-4 w-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2.5}
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
+                      {isDone && (
+                        <svg className="h-4 w-4 text-white animate-scale-in" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
                     </button>
                   </div>
 
