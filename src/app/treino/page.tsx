@@ -487,40 +487,50 @@ function TreinoContent() {
             const lib = exercises[ex.exercise_id];
             const name = lib ? translateExerciseName(lib.name) : ex.exercise_id.replace(/-/g, " ");
             const exInput = inputs[idx] ?? { exercise_id: ex.exercise_id, sets: [] };
+            // Active = first exercise with at least one pending set
+            const firstActiveIdx = sorted.findIndex((_, i) => {
+              const inp = inputs[i];
+              if (!inp) return false;
+              return inp.sets.some((s) => !s.done);
+            });
+            const allSetsDoneInThis = exInput.sets.length > 0 && exInput.sets.every((s) => s.done);
+            const isActive = training && idx === firstActiveIdx && !allSetsDoneInThis;
             return (
-              <ExerciseCard
-                key={`${ex.exercise_id}-${idx}`}
-                name={name}
-                gifUrl={lib?.gif_url}
-                targetMuscle={lib?.target_muscle}
-                equipment={lib?.equipment}
-                instructions={
-                  lib
-                    ? generatePortugueseInstructions(lib.target_muscle, lib.equipment)
-                    : []
-                }
-                sets={ex.sets}
-                reps={ex.reps}
-                index={idx}
-                training={training}
-                setInputs={exInput.sets}
-                lastSets={lastPerf[ex.exercise_id] || []}
-                personalRecord={prMap[ex.exercise_id] ?? 0}
-                onSetUpdate={(setIdx, field, value) =>
-                  updateSetInput(idx, setIdx, field, value)
-                }
-                onSetDone={(setIdx) => markSetDone(idx, setIdx)}
-                onSwap={
-                  lib?.target_muscle
-                    ? () =>
-                        setSwapModal({
-                          exIdx: idx,
-                          exerciseId: ex.exercise_id,
-                          muscle: lib.target_muscle,
-                        })
-                    : undefined
-                }
-              />
+              <div key={`${ex.exercise_id}-${idx}`} data-exercise-idx={idx}>
+                <ExerciseCard
+                  name={name}
+                  gifUrl={lib?.gif_url}
+                  targetMuscle={lib?.target_muscle}
+                  equipment={lib?.equipment}
+                  instructions={
+                    lib
+                      ? generatePortugueseInstructions(lib.target_muscle, lib.equipment)
+                      : []
+                  }
+                  sets={ex.sets}
+                  reps={ex.reps}
+                  index={idx}
+                  training={training}
+                  isActive={isActive}
+                  setInputs={exInput.sets}
+                  lastSets={lastPerf[ex.exercise_id] || []}
+                  personalRecord={prMap[ex.exercise_id] ?? 0}
+                  onSetUpdate={(setIdx, field, value) =>
+                    updateSetInput(idx, setIdx, field, value)
+                  }
+                  onSetDone={(setIdx) => markSetDone(idx, setIdx)}
+                  onSwap={
+                    lib?.target_muscle
+                      ? () =>
+                          setSwapModal({
+                            exIdx: idx,
+                            exerciseId: ex.exercise_id,
+                            muscle: lib.target_muscle,
+                          })
+                      : undefined
+                  }
+                />
+              </div>
             );
           })}
         </div>
@@ -1111,6 +1121,7 @@ function ExerciseCard({
   reps,
   index,
   training,
+  isActive = false,
   setInputs,
   lastSets,
   personalRecord,
@@ -1127,6 +1138,7 @@ function ExerciseCard({
   reps: string;
   index: number;
   training: boolean;
+  isActive?: boolean;
   setInputs: SetInput[];
   lastSets: SetPerformance[];
   personalRecord: number;
@@ -1156,10 +1168,25 @@ function ExerciseCard({
   }
 
   const doneSets = setInputs.filter((s) => s.done).length;
-  const allDone = setInputs.length > 0 && doneSets === setInputs.length;
 
   return (
-    <div className="animate-fade-in overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+    <div
+      className="animate-fade-in relative overflow-hidden rounded-2xl"
+      style={{
+        background: isActive ? "var(--surface-gradient-active)" : "var(--surface-gradient)",
+        border: `1px solid ${isActive ? "var(--border-active)" : "var(--border-subtle)"}`,
+        boxShadow: isActive ? "0 0 20px rgba(239,68,68,0.10)" : "none",
+        transition: "all 200ms ease-out",
+      }}
+    >
+      {isActive && (
+        <div
+          className="pointer-events-none absolute left-0 top-0 bottom-0 w-[2px]"
+          style={{
+            background: "linear-gradient(180deg, var(--red-500), transparent)",
+          }}
+        />
+      )}
       {/* Header */}
       <div
         role="button"
@@ -1169,19 +1196,16 @@ function ExerciseCard({
         className="flex w-full cursor-pointer items-center gap-3 px-4 py-3.5 text-left"
       >
         <span
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-bold transition-all ${
-            allDone
-              ? "bg-[var(--success)] text-white shadow-[0_0_10px_rgba(34,197,94,0.3)]"
-              : "bg-[var(--red-600)]/15 text-[var(--red-500)]"
-          }`}
+          style={{
+            fontFamily: "var(--font-bebas)",
+            fontSize: "1.25rem",
+            lineHeight: 1,
+            color: isActive ? "var(--red-500)" : "var(--text-dim)",
+            letterSpacing: "0.04em",
+            minWidth: "28px",
+          }}
         >
-          {allDone ? (
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          ) : (
-            index + 1
-          )}
+          {String(index + 1).padStart(2, "0")}
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold capitalize text-[var(--foreground)]">
