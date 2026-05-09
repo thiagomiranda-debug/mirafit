@@ -199,7 +199,7 @@ export default function ProfilePage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
     } catch {
-      setError("Erro ao salvar. Tente novamente.");
+      setError("Não consegui salvar. Verifica sua conexão.");
     } finally {
       setSaving(false);
     }

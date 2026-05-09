@@ -162,14 +162,14 @@ export default function Home() {
         body: JSON.stringify({ locationType: loc, daysAvailable }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Erro ao gerar treino");
+      if (!res.ok) throw new Error(data.error || "Não consegui gerar agora — tenta de novo?");
       if (loc !== locationType) {
         handleLocationChange(loc);
       }
       setShowConfigModal(false);
       await loadData();
     } catch (err) {
-      setGenError(err instanceof Error ? err.message : "Erro ao gerar treino");
+      setGenError(err instanceof Error ? err.message : "Não consegui gerar agora — tenta de novo?");
     } finally {
       setGenerating(false);
     }
@@ -572,7 +572,7 @@ export default function Home() {
               onClick={() => router.push("/onboarding")}
               className="mb-3 w-full rounded-xl py-3 text-sm font-bold text-white gradient-red transition-all hover:shadow-md hover:shadow-[var(--red-600)]/20"
             >
-              Preencher Agora
+              Começar
             </button>
             <button
               onClick={() => {
@@ -581,7 +581,7 @@ export default function Home() {
               }}
               className="w-full py-2 text-sm font-medium text-[var(--text-dim)] transition-colors hover:text-[var(--text-muted)]"
             >
-              Agora Não
+              Mais tarde
             </button>
           </div>
         </div>

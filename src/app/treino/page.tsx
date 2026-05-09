@@ -137,7 +137,7 @@ function TreinoContent() {
         })
       );
     } catch {
-      setError("Erro ao carregar rotina.");
+      setError("Não consegui carregar essa rotina.");
     } finally {
       setLoading(false);
     }
@@ -334,7 +334,7 @@ function TreinoContent() {
       finalElapsedRef.current = elapsed;
       setSaved(true);
     } catch {
-      setError("Erro ao salvar. Tente novamente.");
+      setError("Não consegui salvar. Verifica sua conexão.");
     } finally {
       setSaving(false);
     }
