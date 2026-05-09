@@ -274,3 +274,17 @@ select:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--red-500), 0 0 0 4px rgba(239,68,68,0.2);
 }
+
+/* ── Light mode targeted overrides ── */
+/* Components using rgba(255,255,255,X) hardcoded dark-mode fills need correction */
+@media (prefers-color-scheme: light) {
+  /* BottomNav floating background tweak */
+  nav[class*="fixed bottom"] > div {
+    background: rgba(255,255,255,0.85) !important;
+  }
+
+  /* Treino header gradient tweak */
+  header[class*="px-4 py-3"][style*="rgba(220,38,38,0.06)"] {
+    background: linear-gradient(180deg, rgba(220,38,38,0.06), rgba(255,255,255,0.95)) !important;
+  }
+}
