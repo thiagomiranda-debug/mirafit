@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { haptic } from "@/lib/haptics";
@@ -62,8 +64,15 @@ const NAV_ITEMS = [
 export default function BottomNav() {
   const pathname = usePathname();
   const activeIdx = NAV_ITEMS.findIndex((item) => item.href === pathname);
+  const [mounted, setMounted] = useState(false);
 
-  return (
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  const nav = (
     <nav
       className="fixed bottom-0 left-1.5 right-1.5 z-40"
       style={{
@@ -116,4 +125,6 @@ export default function BottomNav() {
       </div>
     </nav>
   );
+
+  return createPortal(nav, document.body);
 }
