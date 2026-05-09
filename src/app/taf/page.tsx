@@ -39,7 +39,7 @@ export default function TafPage() {
     };
   }, [user, router]);
 
-  if (authLoading || pageLoading) {
+  if (authLoading || pageLoading || !user) {
     return <TafSkeleton />;
   }
 

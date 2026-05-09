@@ -205,7 +205,7 @@ export default function ProfilePage() {
     }
   }
 
-  if (authLoading || pageLoading) {
+  if (authLoading || pageLoading || !user) {
     return <ProfileSkeleton />;
   }
 
