@@ -11,6 +11,8 @@ import {
 } from "@/lib/workoutGenerator";
 import BottomNav from "@/components/BottomNav";
 import ProgressChart from "@/components/ProgressChart";
+import Avatar from "@/components/Avatar";
+import { haptic } from "@/lib/haptics";
 import WorkoutHeatmap from "@/components/WorkoutHeatmap";
 import WeekComparison from "@/components/WeekComparison";
 import { TafGender, TafAgeGroup } from "@/lib/tafData";
@@ -66,7 +68,7 @@ type FormData = {
 };
 
 export default function ProfilePage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const router = useRouter();
   const [pageLoading, setPageLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -195,6 +197,7 @@ export default function ProfilePage() {
         ...(form.age_group ? { age_group: form.age_group } : {}),
       });
       setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
     } catch {
       setError("Erro ao salvar. Tente novamente.");
     } finally {
@@ -209,14 +212,20 @@ export default function ProfilePage() {
   return (
     <div className="flex flex-1 flex-col bg-[var(--background)] pb-24">
       {/* Header */}
-      <header className="px-5 pb-1 pt-6">
-        <h1
-          className="text-3xl text-[var(--foreground)]"
-          style={{ fontFamily: "var(--font-bebas)" }}
-        >
-          MEU PERFIL
-        </h1>
-        <p className="text-xs text-[var(--text-dim)]">Ajuste seus dados para treinos otimizados</p>
+      <header className="px-5 pb-5 pt-6">
+        <div className="flex items-center gap-4">
+          <Avatar name={form.name} size={56} />
+          <div>
+            <h1 className="text-xl font-bold text-[var(--foreground)]">
+              {form.name || "Seu perfil"}
+            </h1>
+            <p className="text-xs text-[var(--text-dim)]">
+              {form.level
+                ? form.level.charAt(0).toUpperCase() + form.level.slice(1)
+                : "Configure seus dados"}
+            </p>
+          </div>
+        </div>
       </header>
 
       <main className="flex flex-1 flex-col gap-5 px-4 py-5">
@@ -567,18 +576,19 @@ export default function ProfilePage() {
             )}
 
             <button
-              onClick={handleSave}
+              onClick={() => {
+                haptic("medium");
+                handleSave();
+              }}
               disabled={saving}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-bold text-white shadow-lg transition-all hover:shadow-xl disabled:opacity-60 gradient-red"
+              className={`tactile shimmer-overlay w-full rounded-2xl py-4 text-sm font-bold text-white transition-all disabled:opacity-60 ${
+                saved ? "bg-[var(--success)]" : "gradient-red"
+              }`}
+              style={{
+                boxShadow: saved ? "var(--glow-success)" : "var(--shadow-red)",
+              }}
             >
-              {saving ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  Salvando...
-                </>
-              ) : (
-                "Salvar Perfil"
-              )}
+              {saving ? "Salvando..." : saved ? "✓ Salvo!" : "Salvar alterações"}
             </button>
 
             {saved && (
@@ -589,6 +599,17 @@ export default function ProfilePage() {
                 Voltar e gerar novo treino
               </button>
             )}
+
+            <button
+              type="button"
+              onClick={() => {
+                haptic("light");
+                signOut();
+              }}
+              className="tactile mt-2 w-full rounded-xl border border-[var(--border)] py-3 text-sm font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--red-500)]"
+            >
+              Sair da conta
+            </button>
       </main>
 
       <BottomNav />
