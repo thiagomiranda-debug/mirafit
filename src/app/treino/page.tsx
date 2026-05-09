@@ -15,6 +15,7 @@ import RestTimer, { NextPreview } from "@/components/RestTimer";
 import ExerciseSearchModal from "@/components/ExerciseSearchModal";
 import { epley1RM } from "@/lib/metrics";
 import TreinoSkeleton from "@/components/skeletons/TreinoSkeleton";
+import { haptic } from "@/lib/haptics";
 
 type SetInput = {
   weight: string;
@@ -371,12 +372,24 @@ function TreinoContent() {
   return (
     <div className="flex flex-1 flex-col bg-[var(--background)]">
       {/* Header */}
-      <header className="relative border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+      <header
+        className="relative px-4 py-3"
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(220,38,38,0.06), rgba(19,19,22,0.95))",
+          backdropFilter: "blur(8px)",
+          borderBottom: "1px solid var(--border-subtle)",
+        }}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.push("/")}
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--surface-2)] text-[var(--text-muted)] transition-colors hover:text-[var(--foreground)]"
+              className="tactile flex h-9 w-9 items-center justify-center rounded-xl text-[var(--text-muted)] transition-colors hover:text-[var(--foreground)]"
+              style={{
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid var(--border-subtle)",
+              }}
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -389,20 +402,35 @@ function TreinoContent() {
               <p className="text-xs text-[var(--text-dim)]">
                 {routine.exercises.length} exercícios
                 {training && totalSets > 0 && (
-                  <span className="ml-2 font-bold text-[var(--amber-500)]">
-                    {doneSets}/{totalSets} séries
+                  <span
+                    className="ml-2 text-[var(--amber-500)]"
+                    style={{ fontFamily: "var(--font-bebas)", letterSpacing: "0.05em", fontSize: "0.8rem" }}
+                  >
+                    {doneSets}/{totalSets} SETS
                   </span>
                 )}
               </p>
             </div>
           </div>
           {training ? (
-            <div className="flex items-center gap-1.5 rounded-xl bg-[var(--surface-2)] px-3 py-1.5">
-              <svg className="h-3.5 w-3.5 text-[var(--amber-500)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+            <div
+              className="flex items-center gap-1.5 rounded-xl px-3 py-1.5"
+              style={{
+                background:
+                  "linear-gradient(135deg, rgba(245,158,11,0.18), rgba(245,158,11,0.08))",
+                border: "1px solid rgba(245,158,11,0.25)",
+                boxShadow: "0 0 12px rgba(245,158,11,0.15)",
+              }}
+            >
               <span
-                className="text-sm font-bold text-[var(--amber-500)]"
+                className="block h-1.5 w-1.5 rounded-full bg-[var(--amber-500)]"
+                style={{
+                  boxShadow: "0 0 6px var(--amber-500)",
+                  animation: "pulse 1.5s ease-in-out infinite",
+                }}
+              />
+              <span
+                className="text-sm font-bold text-[var(--amber-400)]"
                 style={{ fontFamily: "var(--font-bebas)", letterSpacing: "0.05em" }}
               >
                 {formatElapsed(elapsed)}
@@ -410,21 +438,44 @@ function TreinoContent() {
             </div>
           ) : (
             <button
-              onClick={() => setTraining(true)}
-              className="rounded-xl px-4 py-2 text-xs font-bold text-white gradient-red transition-all hover:shadow-md hover:shadow-[var(--red-600)]/20"
+              onClick={() => {
+                haptic("medium");
+                setTraining(true);
+              }}
+              className="tactile rounded-xl px-4 py-2 text-xs font-bold text-white gradient-red transition-all"
+              style={{ boxShadow: "var(--shadow-red)" }}
             >
               Treinar
             </button>
           )}
         </div>
 
-        {/* Progress bar */}
+        {/* Progress bar com glow */}
         {training && totalSets > 0 && (
-          <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-[var(--surface-3)]">
+          <div className="mt-3 relative">
             <div
-              className="h-full rounded-full transition-all duration-500 ease-out gradient-red"
-              style={{ width: `${progressPct}%` }}
-            />
+              className="h-1 w-full overflow-hidden rounded-full"
+              style={{ background: "rgba(255,255,255,0.04)" }}
+            >
+              <div
+                className="relative h-full rounded-full transition-all duration-500 ease-out"
+                style={{
+                  width: `${progressPct}%`,
+                  background: "linear-gradient(90deg, var(--red-500), var(--amber-500))",
+                  boxShadow: "0 0 8px rgba(239,68,68,0.4)",
+                }}
+              >
+                {progressPct > 0 && progressPct < 100 && (
+                  <div
+                    className="absolute -right-1 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full"
+                    style={{
+                      background: "var(--amber-400)",
+                      boxShadow: "0 0 12px var(--amber-400)",
+                    }}
+                  />
+                )}
+              </div>
+            </div>
           </div>
         )}
       </header>
