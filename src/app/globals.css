@@ -26,6 +26,28 @@
   /* ── Semantic ── */
   --success: #22C55E;
   --error: #EF4444;
+
+  /* ── Layered surfaces ── */
+  --surface-gradient: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+  --surface-gradient-active: linear-gradient(180deg, rgba(239,68,68,0.08), rgba(239,68,68,0.02));
+  --border-subtle: rgba(255,255,255,0.06);
+  --border-active: rgba(239,68,68,0.4);
+
+  /* ── Multi-layer shadows ── */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.2);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.3);
+  --shadow-red: 0 8px 24px rgba(220,38,38,0.35), inset 0 1px 0 rgba(255,255,255,0.2);
+  --shadow-amber: 0 8px 24px rgba(245,158,11,0.30), inset 0 1px 0 rgba(255,255,255,0.2);
+
+  /* ── Glow effects ── */
+  --glow-red: 0 0 16px rgba(239,68,68,0.4);
+  --glow-amber: 0 0 16px rgba(251,191,36,0.4);
+  --glow-success: 0 0 12px rgba(34,197,94,0.4);
+
+  /* ── Gradient text ── */
+  --gradient-accent: linear-gradient(90deg, #EF4444, #FBBF24);
+  --gradient-num: linear-gradient(180deg, #FFFFFF, #C0C0C8);
 }
 
 @theme inline {
@@ -46,6 +68,13 @@
     --foreground: #111113;
     --text-muted: #6B7280;
     --text-dim: #9CA3AF;
+    --surface-gradient: linear-gradient(180deg, rgba(0,0,0,0.02), rgba(0,0,0,0.01));
+    --surface-gradient-active: linear-gradient(180deg, rgba(220,38,38,0.06), rgba(220,38,38,0.01));
+    --border-subtle: rgba(0,0,0,0.06);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06);
+    --gradient-num: linear-gradient(180deg, #111113, #4B5563);
   }
 }
 
@@ -176,4 +205,46 @@ input[type="number"] {
   --red-600: #D97706;
   --red-700: #B45309;
   --red-800: #92400E;
+}
+
+/* ── Tactile press (uso global em botões) ── */
+.tactile {
+  transition: transform 150ms ease-out;
+}
+.tactile:active {
+  transform: scale(0.97);
+}
+
+/* ── Shimmer overlay (para CTAs premium) ── */
+.shimmer-overlay {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer-overlay::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+  animation: shimmer-sweep 3s infinite;
+  pointer-events: none;
+}
+@keyframes shimmer-sweep {
+  0% { left: -100%; }
+  100% { left: 200%; }
+}
+
+/* ── Skeleton shimmer ── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface) 0%,
+    var(--surface-2) 50%,
+    var(--surface) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+  border-radius: 8px;
 }
