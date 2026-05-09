@@ -23,6 +23,7 @@ import HomeBuilderModal from "@/components/HomeBuilderModal";
 import HomeSkeleton from "@/components/skeletons/HomeSkeleton";
 import Avatar from "@/components/Avatar";
 import { useGreeting } from "@/lib/hooks";
+import { haptic } from "@/lib/haptics";
 
 /** Normaliza Firestore Timestamp (objeto com seconds) ou Date para Date. */
 function toDate(value: unknown): Date | null {
@@ -252,23 +253,53 @@ export default function Home() {
 
       {/* ── Location Toggle ── */}
       <div className="px-4 pb-3">
-        <div className="flex rounded-xl bg-[var(--surface)] p-1 border border-[var(--border)]">
+        <div
+          className="relative flex rounded-xl border p-1"
+          style={{
+            background: "var(--surface-gradient)",
+            borderColor: "var(--border-subtle)",
+          }}
+        >
+          {/* Pill animado */}
+          <div
+            className="absolute top-1 bottom-1 rounded-lg transition-transform duration-400"
+            style={{
+              left: 4,
+              width: "calc(50% - 4px)",
+              transform: locationType === "quartel" ? "translateX(100%)" : "translateX(0)",
+              background:
+                locationType === "quartel"
+                  ? "linear-gradient(135deg, var(--amber-600), var(--amber-500))"
+                  : "linear-gradient(135deg, var(--red-700), var(--red-600))",
+              boxShadow:
+                locationType === "quartel"
+                  ? "var(--shadow-amber)"
+                  : "var(--shadow-red)",
+              transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+            }}
+          />
           <button
-            onClick={() => handleLocationChange("gym")}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-bold transition-all ${
+            onClick={() => {
+              haptic("light");
+              handleLocationChange("gym");
+            }}
+            className={`tactile relative z-10 flex flex-1 items-center justify-center gap-1.5 py-2.5 text-xs font-bold transition-colors ${
               locationType === "gym"
-                ? "bg-[var(--red-600)] text-white shadow-md"
-                : "text-[var(--text-muted)] hover:text-[var(--foreground)]"
+                ? "text-white"
+                : "text-[var(--text-muted)]"
             }`}
           >
             🏢 Academia
           </button>
           <button
-            onClick={() => handleLocationChange("quartel")}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-bold transition-all ${
+            onClick={() => {
+              haptic("light");
+              handleLocationChange("quartel");
+            }}
+            className={`tactile relative z-10 flex flex-1 items-center justify-center gap-1.5 py-2.5 text-xs font-bold transition-colors ${
               locationType === "quartel"
-                ? "bg-[var(--amber-600)] text-white shadow-md"
-                : "text-[var(--text-muted)] hover:text-[var(--foreground)]"
+                ? "text-white"
+                : "text-[var(--text-muted)]"
             }`}
           >
             🚒 Quartel
