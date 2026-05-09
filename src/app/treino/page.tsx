@@ -256,6 +256,15 @@ function TreinoContent() {
             lastPerformance: lastSummary || undefined,
           };
         }
+        // Auto-scroll suave para o próximo exercício
+        if (sortedEx[exIdx + 1]) {
+          setTimeout(() => {
+            const nextEl = document.querySelector(
+              `[data-exercise-idx="${exIdx + 1}"]`
+            );
+            nextEl?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 300);
+        }
       }
 
       setRestTimer({ exerciseName: name, nextPreview });
@@ -572,9 +581,13 @@ function TreinoContent() {
         <div className="fixed bottom-0 left-0 right-0 border-t border-[var(--border)] bg-[var(--surface)] px-4 py-3"
           style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
           <button
-            onClick={handleFinish}
+            onClick={() => {
+              haptic("success");
+              handleFinish();
+            }}
             disabled={saving || doneSets === 0}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-bold text-white shadow-lg transition-all hover:shadow-xl disabled:opacity-50 gradient-red"
+            className="tactile shimmer-overlay flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-bold text-white transition-all disabled:opacity-50 gradient-red"
+            style={{ boxShadow: "var(--shadow-red)" }}
           >
             {saving ? (
               <>
@@ -582,7 +595,7 @@ function TreinoContent() {
                 Salvando...
               </>
             ) : (
-              `Finalizar Treino${doneSets > 0 ? ` (${doneSets}/${totalSets} séries)` : ""}`
+              `Finalizar Treino${doneSets > 0 ? ` (${doneSets}/${totalSets})` : ""}`
             )}
           </button>
         </div>
