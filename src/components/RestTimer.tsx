@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { haptic } from "@/lib/haptics";
 
 const REST_DURATION_KEY = "mirafit_rest_duration";
 
@@ -144,22 +145,36 @@ export default function RestTimer({
         {/* Circular countdown */}
         <div className="relative mx-auto mb-7 flex h-32 w-32 items-center justify-center">
           <svg className="absolute inset-0" viewBox="0 0 100 100">
+            <defs>
+              <linearGradient id="restGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="var(--red-500)" />
+                <stop offset="100%" stopColor="var(--amber-500)" />
+              </linearGradient>
+              <filter id="restGlow">
+                <feGaussianBlur stdDeviation="2" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
             {/* Track */}
             <circle
               cx="50" cy="50" r={radius}
               fill="none"
-              stroke="var(--surface-3)"
-              strokeWidth="5"
+              stroke="rgba(255,255,255,0.06)"
+              strokeWidth="6"
             />
             {/* Progress */}
             <circle
               cx="50" cy="50" r={radius}
               fill="none"
-              stroke="var(--red-500)"
-              strokeWidth="5"
+              stroke="url(#restGrad)"
+              strokeWidth="6"
               strokeLinecap="round"
               strokeDasharray={`${dash} ${circumference}`}
               transform="rotate(-90 50 50)"
+              filter="url(#restGlow)"
               style={{ transition: "stroke-dasharray 1s linear" }}
             />
           </svg>
@@ -176,8 +191,8 @@ export default function RestTimer({
           {[30, 45, 60].map((s) => (
             <button
               key={s}
-              onClick={() => startCountdown(s)}
-              className={`flex-1 rounded-xl border py-2.5 text-sm font-bold transition-all ${
+              onClick={() => { haptic("light"); startCountdown(s); }}
+              className={`tactile flex-1 rounded-xl border py-2.5 text-sm font-bold transition-all ${
                 total === s && remaining <= s
                   ? "border-[var(--red-500)] bg-[var(--red-600)]/15 text-[var(--red-500)]"
                   : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] hover:border-[var(--border-light)]"
@@ -230,8 +245,8 @@ export default function RestTimer({
         )}
 
         <button
-          onClick={onClose}
-          className="w-full rounded-xl border border-[var(--border)] py-3.5 text-sm font-semibold text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
+          onClick={() => { haptic("light"); onClose(); }}
+          className="tactile w-full rounded-xl border border-[var(--border)] py-3.5 text-sm font-semibold text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
         >
           Pular descanso
         </button>
