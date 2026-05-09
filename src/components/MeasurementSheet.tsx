@@ -116,14 +116,17 @@ export default function MeasurementSheet({ open, onClose, onSave }: MeasurementS
   return (
     <div className="fixed inset-0 z-50 flex items-end">
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={handleClose}
       />
 
-      <div className="animate-slide-up relative w-full rounded-t-3xl bg-[var(--surface)] border-t border-[var(--border)] flex flex-col max-h-[90dvh]">
+      <div className="animate-slide-up relative w-full rounded-t-3xl bg-[var(--surface)] flex flex-col max-h-[90dvh]" style={{ borderTop: "1px solid var(--border-subtle)" }}>
         {/* Handle */}
         <div className="flex-shrink-0 pt-4 px-5 pb-2">
-          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[var(--border)]" />
+          <div
+            className="mx-auto mb-3 h-1 w-12 rounded-full"
+            style={{ background: "rgba(255,255,255,0.15)" }}
+          />
           <h2 className="text-base font-bold text-[var(--foreground)]">Nova Medida</h2>
           <p className="text-xs text-[var(--text-dim)] mt-0.5">Preencha apenas os campos que quiser registrar</p>
         </div>

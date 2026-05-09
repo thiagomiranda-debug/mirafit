@@ -143,16 +143,19 @@ export default function ExerciseSearchModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
 
       {/* Sheet */}
       <div
         className="animate-slide-up relative flex w-full max-w-md flex-col rounded-t-3xl bg-[var(--surface)]"
-        style={{ maxHeight: "90vh" }}
+        style={{ maxHeight: "90vh", borderTop: "1px solid var(--border-subtle)" }}
       >
         {/* Handle */}
         <div className="flex shrink-0 items-center justify-between px-4 pb-3 pt-4">
-          <div className="mx-auto mb-1 h-1 w-10 rounded-full bg-[var(--border-light)]" />
+          <div
+            className="mx-auto mb-1 h-1 w-12 rounded-full"
+            style={{ background: "rgba(255,255,255,0.15)" }}
+          />
         </div>
 
         <div className="shrink-0 px-4 pb-3">

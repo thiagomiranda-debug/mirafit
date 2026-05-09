@@ -34,14 +34,17 @@ export default function WorkoutConfigModal({
     <div className="fixed inset-0 z-50 flex items-end">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
       />
 
       {/* Sheet */}
-      <div className="animate-slide-up relative w-full rounded-t-3xl bg-[var(--surface)] border-t border-[var(--border)] px-5 pb-8 pt-4">
+      <div className="animate-slide-up relative w-full rounded-t-3xl bg-[var(--surface)] px-5 pb-8 pt-4" style={{ borderTop: "1px solid var(--border-subtle)" }}>
         {/* Handle bar */}
-        <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-[var(--border)]" />
+        <div
+          className="mx-auto mb-5 h-1 w-12 rounded-full"
+          style={{ background: "rgba(255,255,255,0.15)" }}
+        />
 
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">

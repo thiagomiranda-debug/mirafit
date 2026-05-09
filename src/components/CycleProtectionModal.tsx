@@ -25,12 +25,15 @@ export default function CycleProtectionModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end">
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onCancel}
       />
 
-      <div className="animate-slide-up relative w-full rounded-t-3xl bg-[var(--surface)] border-t border-[var(--border)] px-5 pb-8 pt-4">
-        <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-[var(--border)]" />
+      <div className="animate-slide-up relative w-full rounded-t-3xl bg-[var(--surface)] px-5 pb-8 pt-4" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+        <div
+          className="mx-auto mb-5 h-1 w-12 rounded-full"
+          style={{ background: "rgba(255,255,255,0.15)" }}
+        />
 
         <div className="mb-4 flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--amber-600)]/15 text-[var(--amber-500)]">
