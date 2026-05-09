@@ -11,6 +11,8 @@ import ExerciseChart, { ChartDataPoint } from "@/components/ExerciseChart";
 import MuscleAnalytics from "@/components/MuscleAnalytics";
 import BottomNav from "@/components/BottomNav";
 import HistorySkeleton from "@/components/skeletons/HistorySkeleton";
+import EmptyState from "@/components/EmptyState";
+import { haptic } from "@/lib/haptics";
 
 type Tab = "treinos" | "evolucao" | "analise";
 
@@ -147,39 +149,53 @@ export default function HistoryPage() {
       </header>
 
       {/* Tabs */}
-      <div className="mt-3 flex gap-2 px-5">
-        {(["treinos", "evolucao", "analise"] as Tab[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`rounded-xl px-5 py-2 text-sm font-bold transition-all ${
-              tab === t
-                ? "bg-[var(--red-600)] text-white shadow-md shadow-[var(--red-600)]/20"
-                : "bg-[var(--surface)] text-[var(--text-dim)] border border-[var(--border)] hover:text-[var(--foreground)]"
-            }`}
+        <div className="px-4 pb-4 mt-3">
+          <div
+            className="relative flex rounded-xl border p-1"
+            style={{
+              background: "var(--surface-gradient)",
+              borderColor: "var(--border-subtle)",
+            }}
           >
-            {t === "treinos" ? "Treinos" : t === "evolucao" ? "Evolução" : "Análise"}
-          </button>
-        ))}
-      </div>
+            <div
+              className="absolute top-1 bottom-1 rounded-lg transition-transform duration-400"
+              style={{
+                left: 4,
+                width: "calc(33.333% - 3px)",
+                transform: `translateX(${
+                  tab === "treinos" ? "0" : tab === "evolucao" ? "100%" : "200%"
+                })`,
+                background: "linear-gradient(135deg, var(--red-700), var(--red-600))",
+                boxShadow: "var(--shadow-red)",
+                transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+              }}
+            />
+            {(["treinos", "evolucao", "analise"] as Tab[]).map((t) => (
+              <button
+                key={t}
+                onClick={() => {
+                  haptic("light");
+                  setTab(t);
+                }}
+                className={`tactile relative z-10 flex-1 py-2 text-xs font-bold transition-colors ${
+                  tab === t ? "text-white" : "text-[var(--text-muted)]"
+                }`}
+              >
+                {t === "treinos" ? "Treinos" : t === "evolucao" ? "Evolução" : "Análise"}
+              </button>
+            ))}
+          </div>
+        </div>
 
       <main className="flex flex-1 flex-col gap-3 px-4 py-4">
         {tab === "treinos" && (
           <>
             {logs.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-[var(--border-light)] p-8 text-center">
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--surface-2)]">
-                  <svg className="h-6 w-6 text-[var(--text-dim)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <p className="text-sm font-medium text-[var(--text-muted)]">
-                  Nenhum treino registrado ainda
-                </p>
-                <p className="mt-1 text-xs text-[var(--text-dim)]">
-                  Finalize um treino para ver o histórico aqui
-                </p>
-              </div>
+              <EmptyState
+                icon="📊"
+                title="SEM HISTÓRICO AINDA"
+                description="Complete seu primeiro treino e ele aparecerá aqui."
+              />
             ) : (
               <div className="stagger space-y-3">
                 {logs.map((log) => (
@@ -252,7 +268,13 @@ function LogCard({
   const totalVolume = getTotalVolume(log);
 
   return (
-    <div className="animate-fade-in overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+    <div
+      className="animate-fade-in overflow-hidden rounded-2xl"
+      style={{
+        background: "var(--surface-gradient)",
+        border: "1px solid var(--border-subtle)",
+      }}
+    >
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between px-4 py-3.5 text-left"
