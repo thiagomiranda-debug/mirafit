@@ -22,6 +22,7 @@ import CycleProtectionModal from "@/components/CycleProtectionModal";
 import HomeBuilderModal from "@/components/HomeBuilderModal";
 import HomeSkeleton from "@/components/skeletons/HomeSkeleton";
 import Avatar from "@/components/Avatar";
+import EmptyState from "@/components/EmptyState";
 import { useCountUp, useGreeting } from "@/lib/hooks";
 import { haptic } from "@/lib/haptics";
 
@@ -356,7 +357,13 @@ export default function Home() {
 
         {/* ── Week dots ── */}
         {streak && (
-          <div className="animate-fade-in flex items-center justify-between rounded-2xl bg-[var(--surface)] px-5 py-3.5 border border-[var(--border)]">
+          <div
+            className="animate-fade-in flex items-center justify-between rounded-2xl px-5 py-3.5"
+            style={{
+              background: "var(--surface-gradient)",
+              border: "1px solid var(--border-subtle)",
+            }}
+          >
             {DAY_LABELS.map((label, i) => (
               <div key={i} className="flex flex-col items-center gap-1.5">
                 <span className="text-[10px] font-semibold text-[var(--text-dim)]">
@@ -365,9 +372,22 @@ export default function Home() {
                 <div
                   className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
                     streak.thisWeekDays[i]
-                      ? "bg-[var(--red-600)] text-white shadow-[0_0_12px_rgba(220,38,38,0.3)]"
-                      : "bg-[var(--surface-2)] text-[var(--text-dim)]"
+                      ? "text-white"
+                      : "text-[var(--text-dim)]"
                   }`}
+                  style={
+                    streak.thisWeekDays[i]
+                      ? {
+                          background:
+                            "linear-gradient(135deg, var(--red-500), var(--red-600))",
+                          boxShadow: "var(--glow-red)",
+                          border: "1px solid rgba(239,68,68,0.5)",
+                        }
+                      : {
+                          background: "rgba(255,255,255,0.04)",
+                          border: "1px solid rgba(255,255,255,0.05)",
+                        }
+                  }
                 >
                   {streak.thisWeekDays[i] ? (
                     <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -415,9 +435,10 @@ export default function Home() {
 
         {/* ── Generate button ── */}
         <button
-          onClick={() => setShowConfigModal(true)}
+          onClick={() => { haptic("medium"); setShowConfigModal(true); }}
           disabled={generating || !profile}
-          className="animate-fade-in-up group relative flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-2xl py-4 text-sm font-bold text-white shadow-lg transition-all hover:shadow-xl disabled:opacity-60 gradient-red animate-pulse-glow"
+          className="tactile shimmer-overlay animate-fade-in-up group relative flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-2xl py-4 text-sm font-bold text-white transition-all disabled:opacity-60 gradient-red"
+          style={{ boxShadow: "var(--shadow-red)" }}
         >
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 opacity-0 transition-opacity group-hover:opacity-100" />
           {generating ? (
@@ -430,27 +451,27 @@ export default function Home() {
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              Gerar Novo Treino
+              Gerar meu treino
             </>
           ) : (
             <>
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
-              Gerar Treino Automático
+              Gerar meu treino
             </>
           )}
         </button>
 
         {/* ── Manual builder button ── */}
         <button
-          onClick={() => setShowBuilderModal(true)}
-          className="animate-fade-in-up flex w-full items-center justify-center gap-2.5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] py-4 text-sm font-bold text-[var(--foreground)] transition-all hover:border-[var(--red-500)]/30 hover:bg-[var(--surface-2)]"
+          onClick={() => { haptic("light"); setShowBuilderModal(true); }}
+          className="tactile animate-fade-in-up flex w-full items-center justify-center gap-2.5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] py-4 text-sm font-bold text-[var(--foreground)] transition-all hover:border-[var(--red-500)]/30 hover:bg-[var(--surface-2)]"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
           </svg>
-          Montar Treino Manual
+          Montar manualmente
         </button>
 
         {genError && (
@@ -461,8 +482,11 @@ export default function Home() {
         {workout ? (
           <div className="animate-fade-in-up">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--foreground)]">
-                Treino {workout.workout_type}
+              <h2
+                className="text-base text-[var(--foreground)]"
+                style={{ fontFamily: "var(--font-bebas)", letterSpacing: "0.12em" }}
+              >
+                TREINO ATIVO
               </h2>
               <span className="flex items-center gap-1.5 rounded-full bg-[var(--red-600)]/15 px-3 py-1 text-xs font-bold text-[var(--red-500)]">
                 <span className="h-1.5 w-1.5 rounded-full bg-[var(--red-500)] animate-pulse" />
@@ -476,17 +500,11 @@ export default function Home() {
             </div>
           </div>
         ) : !generating && (
-          <div className="animate-fade-in rounded-2xl border border-dashed border-[var(--border-light)] p-8 text-center">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--surface-2)]">
-              <svg className="h-6 w-6 text-[var(--text-dim)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-            </div>
-            <p className="text-sm font-medium text-[var(--text-muted)]">Nenhum treino ativo</p>
-            <p className="mt-1 text-xs text-[var(--text-dim)]">
-              Gere seu primeiro treino para começar
-            </p>
-          </div>
+          <EmptyState
+            icon="💪"
+            title="PRONTO PRA COMEÇAR?"
+            description="Gere seu primeiro treino e bora suar."
+          />
         )}
       </main>
 
@@ -573,21 +591,52 @@ export default function Home() {
 }
 
 function RoutineCard({ routine, workoutId }: { routine: Routine; workoutId: string }) {
+  // Tempo estimado: ~90s/set + 30s/exercício de transição
+  const totalSets = routine.exercises.reduce((acc, ex) => acc + ex.sets, 0);
+  const estMinutes = Math.round((totalSets * 90 + routine.exercises.length * 30) / 60);
+  const primaryMuscle = (routine.exercises[0] as unknown as Record<string, string> | undefined)?.target_muscle;
+  const muscleLabel = primaryMuscle
+    ? primaryMuscle.charAt(0).toUpperCase() + primaryMuscle.slice(1)
+    : null;
+
   return (
     <Link
       href={`/treino?w=${workoutId}&r=${routine.id}`}
-      className="animate-fade-in group flex items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3.5 transition-all hover:border-[var(--red-600)]/30 hover:bg-[var(--surface-2)]"
+      onClick={() => haptic("light")}
+      className="tactile animate-fade-in group relative flex items-center justify-between overflow-hidden rounded-2xl px-4 py-3.5 transition-all hover:border-[var(--red-600)]/30"
+      style={{
+        background: "var(--surface-gradient)",
+        border: "1px solid var(--border-subtle)",
+      }}
     >
+      <div
+        className="pointer-events-none absolute left-0 top-0 bottom-0 w-[2px]"
+        style={{
+          background: "linear-gradient(180deg, var(--red-500), transparent)",
+        }}
+      />
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--red-600)]/10">
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-xl"
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(220,38,38,0.25), rgba(220,38,38,0.10))",
+            boxShadow: "inset 0 0 0 1px rgba(239,68,68,0.2)",
+          }}
+        >
           <svg className="h-5 w-5 text-[var(--red-500)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
           </svg>
         </div>
         <div>
-          <p className="font-semibold text-[var(--foreground)]">{routine.name}</p>
+          <p className="font-semibold text-[var(--foreground)]">
+            {routine.name}
+            {muscleLabel && (
+              <span className="font-medium text-[var(--text-muted)]"> · {muscleLabel}</span>
+            )}
+          </p>
           <p className="mt-0.5 text-xs text-[var(--text-dim)]">
-            {routine.exercises.length} exercícios
+            {routine.exercises.length} exercícios · ~{estMinutes} min
           </p>
         </div>
       </div>
