@@ -21,6 +21,8 @@ import WorkoutConfigModal from "@/components/WorkoutConfigModal";
 import CycleProtectionModal from "@/components/CycleProtectionModal";
 import HomeBuilderModal from "@/components/HomeBuilderModal";
 import HomeSkeleton from "@/components/skeletons/HomeSkeleton";
+import Avatar from "@/components/Avatar";
+import { useGreeting } from "@/lib/hooks";
 
 /** Normaliza Firestore Timestamp (objeto com seconds) ou Date para Date. */
 function toDate(value: unknown): Date | null {
@@ -52,6 +54,8 @@ type ActiveWorkout = Workout & { routines: Routine[] };
 const DAY_LABELS = ["D", "S", "T", "Q", "Q", "S", "S"];
 
 export default function Home() {
+  const greeting = useGreeting();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { user, loading, signOut } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [workout, setWorkout] = useState<ActiveWorkout | null>(null);
@@ -201,22 +205,30 @@ export default function Home() {
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[var(--red-600)]/8 to-transparent" />
         <div className="relative flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium uppercase tracking-widest text-[var(--text-dim)]">
-              Bem-vindo
+            <p className="text-xs font-medium uppercase tracking-widest text-[var(--text-muted)]">
+              {greeting}
             </p>
             <h1 className="mt-0.5 text-2xl font-bold text-[var(--foreground)]">
-              {firstName ?? "Bem-vindo"}
+              {firstName ? (
+                <>
+                  Vamos,{" "}
+                  <span
+                    style={{
+                      background: "var(--gradient-accent)",
+                      WebkitBackgroundClip: "text",
+                      backgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                    }}
+                  >
+                    {firstName}
+                  </span>
+                </>
+              ) : (
+                "Vamos treinar"
+              )}
             </h1>
           </div>
-          <button
-            onClick={signOut}
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--surface-2)] text-[var(--text-dim)] transition-colors hover:text-[var(--foreground)]"
-            title="Sair"
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-          </button>
+          <Avatar name={firstName} size={36} />
         </div>
 
         {/* Tags */}
