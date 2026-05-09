@@ -207,7 +207,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-[var(--background)] pb-20">
+    <div className="flex flex-1 flex-col bg-[var(--background)] pb-24">
       {/* Header */}
       <header className="px-5 pb-1 pt-6">
         <h1

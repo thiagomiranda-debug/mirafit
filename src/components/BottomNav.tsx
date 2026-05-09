@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { haptic } from "@/lib/haptics";
 
 const NAV_ITEMS = [
   {
@@ -60,30 +61,55 @@ const NAV_ITEMS = [
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const activeIdx = NAV_ITEMS.findIndex((item) => item.href === pathname);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-[var(--surface)] border-[var(--border)]"
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-      <div className="flex items-stretch justify-around">
+    <nav
+      className="fixed bottom-1.5 left-1.5 right-1.5 z-40"
+      style={{
+        marginBottom: "env(safe-area-inset-bottom)",
+      }}
+    >
+      <div
+        className="relative flex items-stretch justify-around overflow-hidden rounded-2xl"
+        style={{
+          background: "rgba(19,19,22,0.85)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          border: "1px solid var(--border-subtle)",
+          boxShadow: "var(--shadow-lg)",
+        }}
+      >
+        {/* Pill animado */}
+        {activeIdx >= 0 && (
+          <div
+            className="absolute top-1 bottom-1 rounded-xl transition-transform duration-400"
+            style={{
+              left: 4,
+              width: `calc(${100 / NAV_ITEMS.length}% - 4px)`,
+              transform: `translateX(${activeIdx * 100}%)`,
+              background:
+                "linear-gradient(135deg, rgba(239,68,68,0.18), rgba(220,38,38,0.12))",
+              border: "1px solid rgba(239,68,68,0.25)",
+              transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+            }}
+          />
+        )}
         {NAV_ITEMS.map((item) => {
           const active = pathname === item.href;
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-1 flex-col items-center gap-0.5 py-2 pt-2.5 transition-colors ${
-                active
-                  ? "text-[var(--red-500)]"
-                  : "text-[var(--text-dim)] hover:text-[var(--text-muted)]"
+              onClick={() => haptic("light")}
+              className={`tactile relative z-10 flex flex-1 flex-col items-center gap-0.5 py-2 pt-2.5 transition-colors ${
+                active ? "text-[var(--red-500)]" : "text-[var(--text-dim)]"
               }`}
             >
               {item.icon(active)}
               <span className="text-[10px] font-semibold tracking-wide">
                 {item.label}
               </span>
-              {active && (
-                <div className="absolute top-0 h-[2px] w-10 rounded-b-full bg-[var(--red-500)]" />
-              )}
             </Link>
           );
         })}

@@ -118,7 +118,7 @@ export default function HistoryPage() {
 
   if (loadError) {
     return (
-      <div className="flex flex-1 flex-col bg-[var(--background)] pb-20">
+      <div className="flex flex-1 flex-col bg-[var(--background)] pb-24">
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center">
           <p className="text-sm font-semibold text-[var(--text-muted)]">Não foi possível carregar o histórico.</p>
           <button

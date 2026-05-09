@@ -200,7 +200,7 @@ export default function Home() {
   const firstName = profile?.name?.split(" ")[0];
 
   return (
-    <div className="flex flex-1 flex-col bg-[var(--background)] pb-20" data-location={locationType}>
+    <div className="flex flex-1 flex-col bg-[var(--background)] pb-24" data-location={locationType}>
       {/* Header */}
       <header className="relative overflow-hidden px-5 pb-5 pt-6">
         {/* Subtle gradient background */}

@@ -44,7 +44,7 @@ export default function TafPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-[var(--background)] pb-20">
+    <div className="flex flex-1 flex-col bg-[var(--background)] pb-24">
       <header className="px-5 pb-1 pt-6">
         <h1
           className="text-3xl text-[var(--foreground)]"
