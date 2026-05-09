@@ -22,7 +22,7 @@ import CycleProtectionModal from "@/components/CycleProtectionModal";
 import HomeBuilderModal from "@/components/HomeBuilderModal";
 import HomeSkeleton from "@/components/skeletons/HomeSkeleton";
 import Avatar from "@/components/Avatar";
-import { useGreeting } from "@/lib/hooks";
+import { useCountUp, useGreeting } from "@/lib/hooks";
 import { haptic } from "@/lib/haptics";
 
 /** Normaliza Firestore Timestamp (objeto com seconds) ou Date para Date. */
@@ -311,46 +311,36 @@ export default function Home() {
         {/* ── KPI Cards ── */}
         {streak && (
           <div className="stagger grid grid-cols-3 gap-3">
-            {/* Streak */}
-            <div className="animate-fade-in rounded-2xl bg-[var(--surface)] p-3.5 border border-[var(--border)]">
-              <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--red-600)]/15">
+            <KPICard
+              value={streak.weekStreak}
+              label={streak.weekStreak === 1 ? "Semana" : "Semanas"}
+              iconBg="linear-gradient(135deg, rgba(220,38,38,0.25), rgba(220,38,38,0.10))"
+              iconColor="#EF4444"
+              icon={
                 <svg className="h-4 w-4 text-[var(--red-500)]" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 23c-3.3 0-8-3.1-8-10.2 0-4.5 3.2-8.3 5.6-10.8.4-.4 1-.1 1 .4v3.2c0 .6.7 1 1.2.6C13.5 4.7 15 2.7 16 1c.3-.4.8-.3 1 .1C18.9 4.5 20 8.1 20 12.8 20 19.9 15.3 23 12 23z" />
                 </svg>
-              </div>
-              <p
-                className="text-3xl font-bold leading-none text-[var(--foreground)]"
-                style={{ fontFamily: "var(--font-bebas)" }}
-              >
-                {streak.weekStreak}
-              </p>
-              <p className="mt-1 text-[10px] font-medium uppercase tracking-wider text-[var(--text-dim)]">
-                {streak.weekStreak === 1 ? "Semana" : "Semanas"}
-              </p>
-            </div>
-
-            {/* Total Workouts */}
-            <div className="animate-fade-in rounded-2xl bg-[var(--surface)] p-3.5 border border-[var(--border)]">
-              <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--amber-500)]/15">
+              }
+            />
+            <KPICard
+              value={streak.totalWorkouts}
+              label="Treinos"
+              iconBg="linear-gradient(135deg, rgba(245,158,11,0.25), rgba(245,158,11,0.10))"
+              iconColor="#F59E0B"
+              icon={
                 <svg className="h-4 w-4 text-[var(--amber-500)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
-              </div>
-              <p
-                className="text-3xl font-bold leading-none text-[var(--foreground)]"
-                style={{ fontFamily: "var(--font-bebas)" }}
-              >
-                {streak.totalWorkouts}
-              </p>
-              <p className="mt-1 text-[10px] font-medium uppercase tracking-wider text-[var(--text-dim)]">
-                Treinos
-              </p>
-            </div>
-
-            {/* This Week */}
-            <div className="animate-fade-in rounded-2xl bg-[var(--surface)] p-3.5 border border-[var(--border)]">
-              <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--success)]/15">
-                {streak.trainedToday ? (
+              }
+            />
+            <KPICard
+              value={streak.thisWeekDays.filter(Boolean).length}
+              fraction={profile?.days_per_week || 0}
+              label="Esta semana"
+              iconBg="linear-gradient(135deg, rgba(34,197,94,0.25), rgba(34,197,94,0.10))"
+              iconColor="#22C55E"
+              icon={
+                streak.trainedToday ? (
                   <svg className="h-4 w-4 text-[var(--success)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
@@ -358,19 +348,9 @@ export default function Home() {
                   <svg className="h-4 w-4 text-[var(--success)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                )}
-              </div>
-              <p
-                className="text-3xl font-bold leading-none text-[var(--foreground)]"
-                style={{ fontFamily: "var(--font-bebas)" }}
-              >
-                {streak.thisWeekDays.filter(Boolean).length}
-                <span className="text-lg text-[var(--text-dim)]">/{profile?.days_per_week || 0}</span>
-              </p>
-              <p className="mt-1 text-[10px] font-medium uppercase tracking-wider text-[var(--text-dim)]">
-                Esta semana
-              </p>
-            </div>
+                )
+              }
+            />
           </div>
         )}
 
@@ -615,5 +595,69 @@ function RoutineCard({ routine, workoutId }: { routine: Routine; workoutId: stri
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
       </svg>
     </Link>
+  );
+}
+
+function KPICard({
+  icon,
+  iconBg,
+  iconColor,
+  value,
+  label,
+  fraction,
+}: {
+  icon: React.ReactNode;
+  iconBg: string;
+  iconColor: string;
+  value: number;
+  label: string;
+  /** Quando presente, renderiza "value/total" (ex: 2/3) */
+  fraction?: number;
+}) {
+  const animated = useCountUp(value);
+  return (
+    <div
+      className="animate-fade-in relative overflow-hidden rounded-2xl p-3.5"
+      style={{
+        background: "var(--surface-gradient)",
+        border: "1px solid var(--border-subtle)",
+      }}
+    >
+      {/* Top inner highlight */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-px"
+        style={{
+          background:
+            "linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent)",
+        }}
+      />
+      <div
+        className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg"
+        style={{
+          background: iconBg,
+          boxShadow: `inset 0 0 0 1px ${iconColor}33`,
+        }}
+      >
+        {icon}
+      </div>
+      <p
+        className="text-3xl font-bold leading-none"
+        style={{
+          fontFamily: "var(--font-bebas)",
+          background: "var(--gradient-num)",
+          WebkitBackgroundClip: "text",
+          backgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+        }}
+      >
+        {animated}
+        {fraction !== undefined && (
+          <span className="text-lg text-[var(--text-dim)]">/{fraction}</span>
+        )}
+      </p>
+      <p className="mt-1 text-[10px] font-medium uppercase tracking-wider text-[var(--text-dim)]">
+        {label}
+      </p>
+    </div>
   );
 }
