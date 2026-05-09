@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import TafAttemptList from "@/components/TafAttemptList";
 import TafHistoryChart from "@/components/TafHistoryChart";
+import EmptyState from "@/components/EmptyState";
+import { haptic } from "@/lib/haptics";
 import { getBestTafResults } from "@/lib/tafAttempts";
 import {
   AGE_GROUP_LABELS,
@@ -52,6 +55,7 @@ export default function TafDashboard({
   gender,
   ageGroup,
 }: TafDashboardProps) {
+  const router = useRouter();
   const [results, setResults] = useState<TafResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
@@ -198,18 +202,23 @@ export default function TafDashboard({
 
       <Link
         href="/taf/tentativa"
-        className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[var(--red-500)] to-[var(--amber-500)] px-4 py-3.5 text-sm font-bold text-white shadow-lg transition-transform active:scale-[0.98]"
+        onClick={() => haptic("medium")}
+        className="tactile flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[var(--red-500)] to-[var(--amber-500)] px-4 py-3.5 text-sm font-bold text-white shadow-lg transition-transform active:scale-[0.98]"
+        style={{ boxShadow: "var(--shadow-red)" }}
       >
         <span>INICIAR MODO TAF</span>
       </Link>
 
       {allZero && (
-        <div className="rounded-xl bg-[var(--surface-2)] px-4 py-5 text-center">
-          <p className="text-sm text-[var(--text-dim)]">
-            Nenhum registro encontrado. Toque em &quot;Iniciar Modo TAF&quot;
-            para registrar sua primeira tentativa.
-          </p>
-        </div>
+        <EmptyState
+          icon="🎯"
+          title="SEM TENTATIVAS AINDA"
+          description="Registre sua primeira tentativa de TAF."
+          action={{
+            label: "Nova tentativa",
+            onClick: () => router.push("/taf/tentativa"),
+          }}
+        />
       )}
 
       <div className="stagger space-y-3">
@@ -231,7 +240,12 @@ export default function TafDashboard({
           return (
             <div
               key={result.key}
-              className="animate-fade-in rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4"
+              className="animate-fade-in rounded-2xl p-4"
+              style={{
+                background: "var(--surface-gradient)",
+                border: "1px solid var(--border-subtle)",
+                boxShadow: "0 0 12px rgba(245,158,11,0.10)",
+              }}
             >
               <div className="mb-3 flex items-start justify-between">
                 <p className="text-sm font-bold text-[var(--foreground)]">
@@ -295,8 +309,14 @@ function RepsCardBody({
   return (
     <div className="mb-3 flex items-baseline gap-1">
       <span
-        className="text-3xl text-[var(--foreground)]"
-        style={{ fontFamily: "var(--font-bebas)" }}
+        className="text-3xl leading-none"
+        style={{
+          fontFamily: "var(--font-bebas)",
+          background: "var(--gradient-num)",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          backgroundClip: "text",
+        }}
       >
         {r.maxReps}
       </span>
@@ -325,8 +345,14 @@ function RunCardBody({
   return (
     <div className="mb-3 flex items-baseline gap-1">
       <span
-        className="text-3xl text-[var(--foreground)]"
-        style={{ fontFamily: "var(--font-bebas)" }}
+        className="text-3xl leading-none"
+        style={{
+          fontFamily: "var(--font-bebas)",
+          background: "var(--gradient-num)",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          backgroundClip: "text",
+        }}
       >
         {r.bestSeconds != null ? formatRunTime(r.bestSeconds, r.key) : "—"}
       </span>

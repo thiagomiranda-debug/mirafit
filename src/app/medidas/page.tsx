@@ -14,6 +14,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getBodyMeasurements, saveBodyMeasurement } from "@/lib/bodyMeasurements";
 import { BodyMeasurement } from "@/types";
 import MeasurementSheet from "@/components/MeasurementSheet";
+import EmptyState from "@/components/EmptyState";
+import { haptic } from "@/lib/haptics";
 
 type MeasurementKey = keyof Omit<BodyMeasurement, "id" | "user_id" | "date">;
 
@@ -275,10 +277,11 @@ export default function MedidasPage() {
           </h2>
 
           {!loading && measurements.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-[var(--border)] p-8 text-center">
-              <p className="text-sm text-[var(--text-dim)]">Nenhum registro ainda</p>
-              <p className="text-xs text-[var(--text-dim)]/60 mt-1">Toque em + para adicionar</p>
-            </div>
+            <EmptyState
+              icon="📏"
+              title="REGISTRE SUAS MEDIDAS"
+              description="Acompanhe sua evolução corporal ao longo do tempo."
+            />
           ) : (
             <div className="flex flex-col gap-3">
               {measurements.map((m) => {
@@ -325,10 +328,10 @@ export default function MedidasPage() {
 
       {/* FAB */}
       <button
-        onClick={() => setSheetOpen(true)}
-        className="fixed bottom-6 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg transition-all hover:scale-105 active:scale-95 gradient-red"
+        onClick={() => { haptic("medium"); setSheetOpen(true); }}
+        className="tactile fixed bottom-6 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg transition-all hover:scale-105 active:scale-95 gradient-red"
         aria-label="Adicionar medida"
-        style={{ boxShadow: "0 4px 20px rgba(239,68,68,0.4)" }}
+        style={{ boxShadow: "var(--shadow-red)" }}
       >
         <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
