@@ -1298,7 +1298,7 @@ function ExerciseCard({
                   <div
                     className="grid items-center gap-2 rounded-lg px-2 py-1.5 transition-all"
                     style={{
-                      gridTemplateColumns: "20px 1fr 1fr 32px",
+                      gridTemplateColumns: "20px 1fr 1fr 44px",
                       background: isDone
                         ? "rgba(34,197,94,0.06)"
                         : isSetActive
@@ -1369,7 +1369,8 @@ function ExerciseCard({
                       type="button"
                       onClick={() => training && onSetDone(sIdx)}
                       disabled={!training}
-                      className="tactile flex h-7 w-7 items-center justify-center rounded-lg transition-all disabled:opacity-50"
+                      aria-label={isDone ? "Desmarcar série" : "Marcar série como concluída"}
+                      className="tactile flex h-11 w-11 items-center justify-center rounded-lg transition-all disabled:opacity-50"
                       style={
                         isDone
                           ? {
@@ -1377,17 +1378,27 @@ function ExerciseCard({
                               border: "1.5px solid #22C55E",
                               boxShadow: "var(--glow-success)",
                             }
+                          : isSetActive
+                          ? {
+                              background: "rgba(239,68,68,0.12)",
+                              border: "1.5px solid rgba(239,68,68,0.6)",
+                            }
                           : {
-                              background: "rgba(255,255,255,0.04)",
-                              border: "1.5px solid rgba(255,255,255,0.08)",
+                              background: "rgba(239,68,68,0.06)",
+                              border: "1.5px solid rgba(239,68,68,0.3)",
                             }
                       }
                     >
-                      {isDone && (
-                        <svg className="h-4 w-4 text-white animate-scale-in" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
+                      <svg
+                        className={`h-5 w-5 ${isDone ? "text-white animate-scale-in" : "text-[var(--red-500)]"}`}
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={3}
+                        style={isDone ? undefined : { opacity: 0.6 }}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
                     </button>
                   </div>
 
