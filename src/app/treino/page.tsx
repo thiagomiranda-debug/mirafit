@@ -3,9 +3,9 @@
 import { Suspense, useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { getExercisesByIds, updateRoutineExercise } from "@/lib/workouts";
+import { getExercisesByIds, updateRoutineExercise, updateRoutineExercises } from "@/lib/workouts";
 import { saveWorkoutLog, getPerfAndRecords } from "@/lib/workoutLogs";
-import { LibraryExercise, Routine, ExercisePerformance, SetPerformance, LocationType } from "@/types";
+import { LibraryExercise, Routine, ExercisePerformance, SetPerformance, LocationType, WorkoutExercise } from "@/types";
 import { QUARTEL_EQUIPMENT_WHITELIST } from "@/lib/workoutGenerator";
 import { doc, getDoc } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase";
@@ -13,6 +13,8 @@ import { generatePortugueseInstructions } from "@/lib/exerciseInstructions";
 import { translateExerciseName } from "@/lib/exerciseNames";
 import RestTimer, { NextPreview } from "@/components/RestTimer";
 import ExerciseSearchModal from "@/components/ExerciseSearchModal";
+import EditModeCard from "@/components/treino/EditModeCard";
+import DeleteConfirmModal from "@/components/treino/DeleteConfirmModal";
 import { epley1RM } from "@/lib/metrics";
 import TreinoSkeleton from "@/components/skeletons/TreinoSkeleton";
 import { haptic } from "@/lib/haptics";
@@ -84,6 +86,15 @@ function TreinoContent() {
   const [notes, setNotes] = useState("");
   const [locationType, setLocationType] = useState<LocationType>("gym");
 
+  const [editMode, setEditMode] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    exIdx: number;
+    exerciseName: string;
+    doneSets: number;
+  } | null>(null);
+  const [editError, setEditError] = useState(false);
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const loadRoutine = useCallback(async () => {
     if (!user || !workoutId || !routineId) return;
     try {
@@ -150,6 +161,35 @@ function TreinoContent() {
   useEffect(() => {
     if (user) loadRoutine();
   }, [user, loadRoutine]);
+
+  const persistExercises = useCallback(
+    (exercises: WorkoutExercise[], immediate = false) => {
+      if (!workoutId || !routineId) return;
+      if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+      const doIt = () => {
+        updateRoutineExercises(workoutId, routineId, exercises).catch(() => {
+          setEditError(true);
+          loadRoutine();
+        });
+      };
+      if (immediate) doIt();
+      else persistTimerRef.current = setTimeout(doIt, 500);
+    },
+    [workoutId, routineId, loadRoutine]
+  );
+
+  function applyDelete(exIdx: number) {
+    if (!routine) return;
+    const sortedEx = [...routine.exercises].sort((a, b) => a.order - b.order);
+    const nextExercises = sortedEx
+      .filter((_, i) => i !== exIdx)
+      .map((ex, i) => ({ ...ex, order: i }));
+
+    setRoutine({ ...routine, exercises: nextExercises });
+    setInputs((prev) => prev.filter((_, i) => i !== exIdx));
+    persistExercises(nextExercises, true);
+    haptic("medium");
+  }
 
   useEffect(() => {
     if (!training) return;
@@ -407,11 +447,11 @@ function TreinoContent() {
             </button>
             <div>
               <h1 className="text-base font-bold text-[var(--foreground)]">
-                {routine.name}
+                {editMode ? "Editando exercícios" : routine.name}
               </h1>
               <p className="text-xs text-[var(--text-dim)]">
                 {routine.exercises.length} exercícios
-                {training && totalSets > 0 && (
+                {training && totalSets > 0 && !editMode && (
                   <span
                     className="ml-2 text-[var(--amber-500)]"
                     style={{ fontFamily: "var(--font-bebas)", letterSpacing: "0.05em", fontSize: "0.8rem" }}
@@ -422,46 +462,97 @@ function TreinoContent() {
               </p>
             </div>
           </div>
-          {training ? (
-            <div
-              className="flex items-center gap-1.5 rounded-xl px-3 py-1.5"
-              style={{
-                background:
-                  "linear-gradient(135deg, rgba(245,158,11,0.18), rgba(245,158,11,0.08))",
-                border: "1px solid rgba(245,158,11,0.25)",
-                boxShadow: "0 0 12px rgba(245,158,11,0.15)",
-              }}
-            >
-              <span
-                className="block h-1.5 w-1.5 rounded-full bg-[var(--amber-500)]"
-                style={{
-                  boxShadow: "0 0 6px var(--amber-500)",
-                  animation: "pulse 1.5s ease-in-out infinite",
-                }}
-              />
-              <span
-                className="text-sm font-bold text-[var(--amber-400)]"
-                style={{ fontFamily: "var(--font-bebas)", letterSpacing: "0.05em" }}
-              >
-                {formatElapsed(elapsed)}
-              </span>
-            </div>
-          ) : (
+          {editMode ? (
             <button
               onClick={() => {
-                haptic("medium");
-                setTraining(true);
+                haptic("light");
+                setEditMode(false);
               }}
-              className="tactile rounded-xl px-4 py-2 text-xs font-bold text-white gradient-red transition-all"
-              style={{ boxShadow: "var(--shadow-red)" }}
+              className="tactile rounded-xl px-4 py-2 text-xs font-bold text-white transition-all"
+              style={{
+                background: "linear-gradient(135deg, #22C55E, #16A34A)",
+                boxShadow: "var(--glow-success)",
+              }}
             >
-              Treinar
+              Concluído
             </button>
+          ) : training ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  haptic("light");
+                  setEditMode(true);
+                }}
+                aria-label="Editar exercícios"
+                className="tactile flex h-9 w-9 items-center justify-center rounded-xl text-[var(--text-muted)] transition-colors hover:text-[var(--foreground)]"
+                style={{
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid var(--border-subtle)",
+                }}
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+              <div
+                className="flex items-center gap-1.5 rounded-xl px-3 py-1.5"
+                style={{
+                  background:
+                    "linear-gradient(135deg, rgba(245,158,11,0.18), rgba(245,158,11,0.08))",
+                  border: "1px solid rgba(245,158,11,0.25)",
+                  boxShadow: "0 0 12px rgba(245,158,11,0.15)",
+                }}
+              >
+                <span
+                  className="block h-1.5 w-1.5 rounded-full bg-[var(--amber-500)]"
+                  style={{
+                    boxShadow: "0 0 6px var(--amber-500)",
+                    animation: "pulse 1.5s ease-in-out infinite",
+                  }}
+                />
+                <span
+                  className="text-sm font-bold text-[var(--amber-400)]"
+                  style={{ fontFamily: "var(--font-bebas)", letterSpacing: "0.05em" }}
+                >
+                  {formatElapsed(elapsed)}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  haptic("light");
+                  setEditMode(true);
+                }}
+                aria-label="Editar exercícios"
+                className="tactile flex h-9 w-9 items-center justify-center rounded-xl text-[var(--text-muted)] transition-colors hover:text-[var(--foreground)]"
+                style={{
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid var(--border-subtle)",
+                }}
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+              <button
+                onClick={() => {
+                  haptic("medium");
+                  setTraining(true);
+                }}
+                disabled={routine.exercises.length === 0}
+                className="tactile rounded-xl px-4 py-2 text-xs font-bold text-white gradient-red transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ boxShadow: "var(--shadow-red)" }}
+              >
+                Treinar
+              </button>
+            </div>
           )}
         </div>
 
         {/* Progress bar com glow */}
-        {training && totalSets > 0 && (
+        {training && totalSets > 0 && !editMode && (
           <div className="mt-3 relative">
             <div
               className="h-1 w-full overflow-hidden rounded-full"
@@ -492,61 +583,99 @@ function TreinoContent() {
 
       {/* Exercises */}
       <main className="flex flex-1 flex-col gap-3 px-4 py-4 pb-28">
-        <div className="stagger space-y-3">
-          {sorted.map((ex, idx) => {
-            const lib = exercises[ex.exercise_id];
-            const name = lib ? translateExerciseName(lib.name) : ex.exercise_id.replace(/-/g, " ");
-            const exInput = inputs[idx] ?? { exercise_id: ex.exercise_id, sets: [] };
-            // Active = first exercise with at least one pending set
-            const firstActiveIdx = sorted.findIndex((_, i) => {
-              const inp = inputs[i];
-              if (!inp) return false;
-              return inp.sets.some((s) => !s.done);
-            });
-            const allSetsDoneInThis = exInput.sets.length > 0 && exInput.sets.every((s) => s.done);
-            const isActive = training && idx === firstActiveIdx && !allSetsDoneInThis;
-            return (
-              <div key={`${ex.exercise_id}-${idx}`} data-exercise-idx={idx}>
-                <ExerciseCard
-                  name={name}
-                  gifUrl={lib?.gif_url}
-                  targetMuscle={lib?.target_muscle}
-                  equipment={lib?.equipment}
-                  instructions={
-                    lib
-                      ? generatePortugueseInstructions(lib.target_muscle, lib.equipment)
-                      : []
-                  }
-                  sets={ex.sets}
-                  reps={ex.reps}
-                  index={idx}
-                  training={training}
-                  isActive={isActive}
-                  setInputs={exInput.sets}
-                  lastSets={lastPerf[ex.exercise_id] || []}
-                  personalRecord={prMap[ex.exercise_id] ?? 0}
-                  onSetUpdate={(setIdx, field, value) =>
-                    updateSetInput(idx, setIdx, field, value)
-                  }
-                  onSetDone={(setIdx) => markSetDone(idx, setIdx)}
-                  onSwap={
-                    lib?.target_muscle
-                      ? () =>
-                          setSwapModal({
-                            exIdx: idx,
-                            exerciseId: ex.exercise_id,
-                            muscle: lib.target_muscle,
-                          })
-                      : undefined
-                  }
-                />
-              </div>
-            );
-          })}
-        </div>
+        {editMode ? (
+          sorted.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <p className="text-sm font-medium text-[var(--text-muted)]">
+                Rotina vazia
+              </p>
+              <p className="mt-1 text-xs text-[var(--text-dim)]">
+                Adicione exercícios pra começar
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {sorted.map((ex, idx) => {
+                const lib = exercises[ex.exercise_id];
+                const name = lib ? translateExerciseName(lib.name) : ex.exercise_id.replace(/-/g, " ");
+                return (
+                  <div key={`edit-${ex.exercise_id}-${idx}`}>
+                    <EditModeCard
+                      index={idx}
+                      name={name}
+                      sets={ex.sets}
+                      reps={ex.reps}
+                      onDelete={() => {
+                        const doneSetsCount = (inputs[idx]?.sets ?? []).filter((s) => s.done).length;
+                        if (doneSetsCount > 0) {
+                          setDeleteConfirm({ exIdx: idx, exerciseName: name, doneSets: doneSetsCount });
+                        } else {
+                          applyDelete(idx);
+                        }
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )
+        ) : (
+          <div className="stagger space-y-3">
+            {sorted.map((ex, idx) => {
+              const lib = exercises[ex.exercise_id];
+              const name = lib ? translateExerciseName(lib.name) : ex.exercise_id.replace(/-/g, " ");
+              const exInput = inputs[idx] ?? { exercise_id: ex.exercise_id, sets: [] };
+              // Active = first exercise with at least one pending set
+              const firstActiveIdx = sorted.findIndex((_, i) => {
+                const inp = inputs[i];
+                if (!inp) return false;
+                return inp.sets.some((s) => !s.done);
+              });
+              const allSetsDoneInThis = exInput.sets.length > 0 && exInput.sets.every((s) => s.done);
+              const isActive = training && idx === firstActiveIdx && !allSetsDoneInThis;
+              return (
+                <div key={`${ex.exercise_id}-${idx}`} data-exercise-idx={idx}>
+                  <ExerciseCard
+                    name={name}
+                    gifUrl={lib?.gif_url}
+                    targetMuscle={lib?.target_muscle}
+                    equipment={lib?.equipment}
+                    instructions={
+                      lib
+                        ? generatePortugueseInstructions(lib.target_muscle, lib.equipment)
+                        : []
+                    }
+                    sets={ex.sets}
+                    reps={ex.reps}
+                    index={idx}
+                    training={training}
+                    isActive={isActive}
+                    setInputs={exInput.sets}
+                    lastSets={lastPerf[ex.exercise_id] || []}
+                    personalRecord={prMap[ex.exercise_id] ?? 0}
+                    onSetUpdate={(setIdx, field, value) =>
+                      updateSetInput(idx, setIdx, field, value)
+                    }
+                    onSetDone={(setIdx) => markSetDone(idx, setIdx)}
+                    onSwap={
+                      lib?.target_muscle
+                        ? () =>
+                            setSwapModal({
+                              exIdx: idx,
+                              exerciseId: ex.exercise_id,
+                              muscle: lib.target_muscle,
+                            })
+                        : undefined
+                    }
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Notas do treino */}
-        {training && (
+        {training && !editMode && (
           <div className="animate-fade-in rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
             <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-[var(--text-dim)]">
               Anotações do treino
@@ -574,10 +703,26 @@ function TreinoContent() {
             </p>
           </div>
         )}
+        {editError && (
+          <div className="animate-fade-in flex items-center gap-2 rounded-xl border border-[var(--red-500)]/30 bg-[var(--red-600)]/10 px-4 py-3">
+            <svg className="h-4 w-4 shrink-0 text-[var(--red-500)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" />
+            </svg>
+            <p className="text-xs font-medium text-[var(--red-500)]">
+              Não foi possível salvar a mudança. Verifique sua conexão.
+            </p>
+            <button
+              onClick={() => setEditError(false)}
+              className="ml-auto text-xs font-bold text-[var(--red-500)] underline"
+            >
+              Ok
+            </button>
+          </div>
+        )}
       </main>
 
       {/* Finish button */}
-      {training && (
+      {training && !editMode && (
         <div className="fixed bottom-0 left-0 right-0 border-t border-[var(--border)] bg-[var(--surface)] px-4 py-3"
           style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
           <button
@@ -619,6 +764,19 @@ function TreinoContent() {
           onSelect={(ex) => handleSwapExercise(swapModal.exIdx, ex, swapModal.exerciseId)}
           onClose={() => setSwapModal(null)}
           equipmentWhitelist={locationType === "quartel" ? QUARTEL_EQUIPMENT_WHITELIST : undefined}
+        />
+      )}
+
+      {/* Delete Confirm Modal */}
+      {deleteConfirm && (
+        <DeleteConfirmModal
+          exerciseName={deleteConfirm.exerciseName}
+          doneSets={deleteConfirm.doneSets}
+          onCancel={() => setDeleteConfirm(null)}
+          onConfirm={() => {
+            applyDelete(deleteConfirm.exIdx);
+            setDeleteConfirm(null);
+          }}
         />
       )}
     </div>
