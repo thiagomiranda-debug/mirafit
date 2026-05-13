@@ -25,7 +25,7 @@ import {
   tafRunStandards,
   tafStandards,
 } from "@/lib/tafData";
-import { getWorkoutLogs } from "@/lib/workoutLogs";
+import { getCachedWorkoutLogs } from "@/lib/workoutLogsCache";
 import { getExercisesByIds } from "@/lib/workouts";
 
 type TafResult =
@@ -68,7 +68,7 @@ export default function TafDashboard({
     async function load() {
       setLoading(true);
       try {
-        const logs = await getWorkoutLogs(userId, 60);
+        const logs = await getCachedWorkoutLogs(userId, 60);
         const idsSet = new Set<string>();
         for (const log of logs) {
           for (const perf of log.performance) idsSet.add(perf.exercise_id);

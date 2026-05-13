@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { getWorkoutLogs } from "@/lib/workoutLogs";
+import { getCachedWorkoutLogs } from "@/lib/workoutLogsCache";
 import { getExercisesByIds } from "@/lib/workouts";
 import { WorkoutLog } from "@/types";
 import { translateExerciseName } from "@/lib/exerciseNames";
@@ -58,7 +58,7 @@ export default function HistoryPage() {
   const loadLogs = useCallback(async () => {
     if (!user) return;
     try {
-      const data = await getWorkoutLogs(user.uid, 30);
+      const data = await getCachedWorkoutLogs(user.uid, 30);
       setLogs(data);
 
       const allIds = new Set<string>();

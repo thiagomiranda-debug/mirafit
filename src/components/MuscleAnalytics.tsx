@@ -9,7 +9,7 @@ import {
   YAxis,
   Tooltip,
 } from "recharts";
-import { getWorkoutLogs } from "@/lib/workoutLogs";
+import { getCachedWorkoutLogs } from "@/lib/workoutLogsCache";
 import { getExercisesByIds } from "@/lib/workouts";
 import { best1RMFromSets, totalVolume } from "@/lib/metrics";
 import { translateExerciseName } from "@/lib/exerciseNames";
@@ -74,7 +74,7 @@ export default function MuscleAnalytics({
   useEffect(() => {
     async function load() {
       try {
-        const logs = await getWorkoutLogs(userId, 90);
+        const logs = await getCachedWorkoutLogs(userId, 90);
         const ids = [
           ...new Set(logs.flatMap((l) => l.performance.map((p) => p.exercise_id))),
         ];

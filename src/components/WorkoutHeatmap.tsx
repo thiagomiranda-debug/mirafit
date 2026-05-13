@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getWorkoutLogs } from "@/lib/workoutLogs";
+import { getCachedWorkoutLogs } from "@/lib/workoutLogsCache";
 import { WorkoutLog } from "@/types";
 
 interface WorkoutHeatmapProps {
@@ -54,7 +54,7 @@ export default function WorkoutHeatmap({ userId, weeks = 13 }: WorkoutHeatmapPro
 
   useEffect(() => {
     let alive = true;
-    getWorkoutLogs(userId, 120).then((data) => {
+    getCachedWorkoutLogs(userId, 120).then((data) => {
       if (alive) setLogs(data);
     });
     return () => {

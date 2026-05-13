@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getWorkoutLogs } from "@/lib/workoutLogs";
+import { getCachedWorkoutLogs } from "@/lib/workoutLogsCache";
 import { WorkoutLog, SetPerformance } from "@/types";
 import { totalVolume } from "@/lib/metrics";
 
@@ -49,7 +49,7 @@ export default function WeekComparison({ userId }: WeekComparisonProps) {
 
   useEffect(() => {
     let alive = true;
-    getWorkoutLogs(userId, 60).then((data) => {
+    getCachedWorkoutLogs(userId, 60).then((data) => {
       if (alive) setLogs(data);
     });
     return () => {

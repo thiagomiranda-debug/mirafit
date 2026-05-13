@@ -9,7 +9,7 @@ import {
   YAxis,
   Tooltip,
 } from "recharts";
-import { getWorkoutLogs } from "@/lib/workoutLogs";
+import { getCachedWorkoutLogs } from "@/lib/workoutLogsCache";
 import { best1RMFromSets, totalVolume } from "@/lib/metrics";
 import { SetPerformance } from "@/types";
 
@@ -38,7 +38,7 @@ export default function ProgressChart({ userId }: ProgressChartProps) {
   useEffect(() => {
     async function load() {
       try {
-        const logs = await getWorkoutLogs(userId, 60);
+        const logs = await getCachedWorkoutLogs(userId, 60);
         // Ordenar do mais antigo para o mais recente para o gráfico
         const sorted = [...logs].reverse();
 

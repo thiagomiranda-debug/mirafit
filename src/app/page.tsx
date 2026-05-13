@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { getUserProfile } from "@/lib/userProfile";
 import { getActiveWorkoutByLocation } from "@/lib/workouts";
-import { getWorkoutLogs } from "@/lib/workoutLogs";
+import { getCachedWorkoutLogs } from "@/lib/workoutLogsCache";
 import { calculateStreak, StreakData } from "@/lib/streaks";
 import {
   notificationPermission,
@@ -107,7 +107,7 @@ export default function Home() {
     setWorkout(w);
     setPageLoading(false);
 
-    getWorkoutLogs(user.uid, 30).then((logs) => {
+    getCachedWorkoutLogs(user.uid, 30).then((logs) => {
       const data = calculateStreak(logs);
       setStreak(data);
       setRecentLogs(logs);

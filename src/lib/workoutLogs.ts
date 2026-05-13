@@ -12,6 +12,7 @@ import {
 import { getFirebaseDb } from "@/lib/firebase";
 import { WorkoutLog, ExercisePerformance, SetPerformance, LocationType } from "@/types";
 import { best1RMFromSets } from "@/lib/metrics";
+import { getCachedWorkoutLogs, invalidateWorkoutLogs } from "@/lib/workoutLogsCache";
 
 export async function saveWorkoutLog(
   userId: string,
@@ -30,6 +31,7 @@ export async function saveWorkoutLog(
   if (notes && notes.trim()) payload.notes = notes.trim();
   if (locationType) payload.location_type = locationType;
   const docRef = await addDoc(collection(db, "workout_history"), payload);
+  invalidateWorkoutLogs(userId);
   return docRef.id;
 }
 
@@ -161,7 +163,7 @@ export async function getPerfAndRecords(userId: string): Promise<{
   lastPerfMap: Record<string, SetPerformance[]>;
   personalRecords: Record<string, number>;
 }> {
-  const logs = await getWorkoutLogs(userId, 60);
+  const logs = await getCachedWorkoutLogs(userId, 60);
   const lastPerfMap: Record<string, SetPerformance[]> = {};
   const personalRecords: Record<string, number> = {};
 
