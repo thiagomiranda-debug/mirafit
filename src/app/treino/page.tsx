@@ -1063,6 +1063,19 @@ function WorkoutComplete({
       const ctx = canvas.getContext("2d");
       if (!ctx) return null;
 
+      // Carrega o ícone do app pro logo (icone + texto), best-effort
+      let logoImg: HTMLImageElement | null = null;
+      try {
+        logoImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+          img.src = "/icons/icon-192.png";
+        });
+      } catch {
+        logoImg = null;
+      }
+
       // ── Background ──
       const bg = ctx.createLinearGradient(0, 0, 0, H);
       bg.addColorStop(0, "#0c0b0b");
@@ -1095,20 +1108,47 @@ function WorkoutComplete({
         }
       }
 
-      // ── Logo / Brand ──
-      ctx.textAlign = "center";
-      ctx.letterSpacing = "14px";
+      // ── Logo / Brand (icone + texto, igual a tela) ──
+      const ICON_SIZE = 88;
+      const ICON_GAP = 22;
+      const LOGO_CENTER_Y = 158;
+
       ctx.font = `bold 62px "Bebas Neue", sans-serif`;
+      ctx.letterSpacing = "14px";
+      const textW = ctx.measureText("MIRAFIT").width;
+
+      const hasIcon = !!logoImg;
+      const totalW = hasIcon ? ICON_SIZE + ICON_GAP + textW : textW;
+      const startX = (W - totalW) / 2;
+
+      if (hasIcon && logoImg) {
+        const iconX = startX;
+        const iconY = LOGO_CENTER_Y - ICON_SIZE / 2;
+        ctx.save();
+        rrect(ctx, iconX, iconY, ICON_SIZE, ICON_SIZE, 20);
+        ctx.clip();
+        ctx.drawImage(logoImg, iconX, iconY, ICON_SIZE, ICON_SIZE);
+        ctx.restore();
+      }
+
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
       ctx.fillStyle = "#f5f5f7";
-      ctx.fillText("MIRAFIT", W / 2, 158);
+      ctx.fillText(
+        "MIRAFIT",
+        hasIcon ? startX + ICON_SIZE + ICON_GAP : startX,
+        LOGO_CENTER_Y
+      );
       ctx.letterSpacing = "0px";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "alphabetic";
 
       // Thin separator
       ctx.strokeStyle = "rgba(255,255,255,0.08)";
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(M + 60, 182);
-      ctx.lineTo(W - M - 60, 182);
+      ctx.moveTo(M + 60, 218);
+      ctx.lineTo(W - M - 60, 218);
       ctx.stroke();
 
       // ── Trophy emoji ──
