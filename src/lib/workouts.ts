@@ -12,7 +12,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase";
-import { Workout, Routine, LibraryExercise, LocationType } from "@/types";
+import { Workout, Routine, LibraryExercise, LocationType, WorkoutExercise } from "@/types";
 
 // Busca exercícios por grupo muscular (para modal de troca de exercício)
 export async function getExercisesByMuscle(
@@ -232,5 +232,17 @@ export async function updateRoutineExercise(
   ).map((ex) =>
     ex.exercise_id === oldExerciseId ? { ...ex, exercise_id: newExerciseId } : ex
   );
+  await updateDoc(routineRef, { exercises });
+}
+
+// Sobrescreve o array completo de exercises de uma routine — usado pelo modo edição
+// que faz add/delete/reorder. As regras do Firestore validam o user_id do workout pai.
+export async function updateRoutineExercises(
+  workoutId: string,
+  routineId: string,
+  exercises: WorkoutExercise[]
+): Promise<void> {
+  const db = getFirebaseDb();
+  const routineRef = doc(db, "workouts", workoutId, "routines", routineId);
   await updateDoc(routineRef, { exercises });
 }
