@@ -18,6 +18,23 @@ import DeleteConfirmModal from "@/components/treino/DeleteConfirmModal";
 import { epley1RM } from "@/lib/metrics";
 import TreinoSkeleton from "@/components/skeletons/TreinoSkeleton";
 import { haptic } from "@/lib/haptics";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 type SetInput = {
   weight: string;
@@ -93,7 +110,17 @@ function TreinoContent() {
     doneSets: number;
   } | null>(null);
   const [editError, setEditError] = useState(false);
+  const [addModal, setAddModal] = useState(false);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { delay: 150, tolerance: 5 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const loadRoutine = useCallback(async () => {
     if (!user || !workoutId || !routineId) return;
@@ -187,6 +214,62 @@ function TreinoContent() {
 
     setRoutine({ ...routine, exercises: nextExercises });
     setInputs((prev) => prev.filter((_, i) => i !== exIdx));
+    persistExercises(nextExercises, true);
+    haptic("medium");
+  }
+
+  function applyReorder(fromIdx: number, toIdx: number) {
+    if (!routine || fromIdx === toIdx) return;
+    const sortedEx = [...routine.exercises].sort((a, b) => a.order - b.order);
+    const movedEx = arrayMove(sortedEx, fromIdx, toIdx).map((ex, i) => ({
+      ...ex,
+      order: i,
+    }));
+    setRoutine({ ...routine, exercises: movedEx });
+    setInputs((prev) => arrayMove(prev, fromIdx, toIdx));
+    persistExercises(movedEx, false);
+    haptic("light");
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const sortedEx = routine
+      ? [...routine.exercises].sort((a, b) => a.order - b.order)
+      : [];
+    const fromIdx = sortedEx.findIndex((ex, i) => `${ex.exercise_id}-${i}` === active.id);
+    const toIdx = sortedEx.findIndex((ex, i) => `${ex.exercise_id}-${i}` === over.id);
+    if (fromIdx !== -1 && toIdx !== -1) {
+      applyReorder(fromIdx, toIdx);
+    }
+  }
+
+  function applyAdd(newEx: LibraryExercise, newSets: number, newReps: string) {
+    if (!routine) return;
+    const sortedEx = [...routine.exercises].sort((a, b) => a.order - b.order);
+    const nextExercises: WorkoutExercise[] = [
+      ...sortedEx,
+      {
+        exercise_id: newEx.id,
+        sets: newSets,
+        reps: newReps,
+        order: sortedEx.length,
+      },
+    ];
+
+    const prev = lastPerf[newEx.id] || [];
+    const newInput: ExerciseInput = {
+      exercise_id: newEx.id,
+      sets: Array.from({ length: newSets }, (_, i) => ({
+        weight: prev[i]?.weight?.toString() || prev[0]?.weight?.toString() || "",
+        reps: prev[i]?.reps?.toString() || prev[0]?.reps?.toString() || "",
+        done: false,
+      })),
+    };
+
+    setRoutine({ ...routine, exercises: nextExercises });
+    setInputs((prevInputs) => [...prevInputs, newInput]);
+    setExercises((prevEx) => ({ ...prevEx, [newEx.id]: newEx }));
     persistExercises(nextExercises, true);
     haptic("medium");
   }
@@ -584,41 +667,71 @@ function TreinoContent() {
       {/* Exercises */}
       <main className="flex flex-1 flex-col gap-3 px-4 py-4 pb-28">
         {editMode ? (
-          sorted.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <p className="text-sm font-medium text-[var(--text-muted)]">
-                Rotina vazia
-              </p>
-              <p className="mt-1 text-xs text-[var(--text-dim)]">
-                Adicione exercícios pra começar
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {sorted.map((ex, idx) => {
-                const lib = exercises[ex.exercise_id];
-                const name = lib ? translateExerciseName(lib.name) : ex.exercise_id.replace(/-/g, " ");
-                return (
-                  <div key={`edit-${ex.exercise_id}-${idx}`}>
-                    <EditModeCard
-                      index={idx}
-                      name={name}
-                      sets={ex.sets}
-                      reps={ex.reps}
-                      onDelete={() => {
-                        const doneSetsCount = (inputs[idx]?.sets ?? []).filter((s) => s.done).length;
-                        if (doneSetsCount > 0) {
-                          setDeleteConfirm({ exIdx: idx, exerciseName: name, doneSets: doneSetsCount });
-                        } else {
-                          applyDelete(idx);
-                        }
-                      }}
-                    />
+          <>
+            {sorted.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <p className="text-sm font-medium text-[var(--text-muted)]">
+                  Rotina vazia
+                </p>
+                <p className="mt-1 text-xs text-[var(--text-dim)]">
+                  Adicione exercícios pra começar
+                </p>
+              </div>
+            ) : (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={sorted.map((ex, i) => `${ex.exercise_id}-${i}`)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-3">
+                    {sorted.map((ex, idx) => {
+                      const lib = exercises[ex.exercise_id];
+                      const name = lib ? translateExerciseName(lib.name) : ex.exercise_id.replace(/-/g, " ");
+                      return (
+                        <SortableEditCard
+                          key={`${ex.exercise_id}-${idx}`}
+                          id={`${ex.exercise_id}-${idx}`}
+                          index={idx}
+                          name={name}
+                          sets={ex.sets}
+                          reps={ex.reps}
+                          onDelete={() => {
+                            const doneSetsCount = (inputs[idx]?.sets ?? []).filter((s) => s.done).length;
+                            if (doneSetsCount > 0) {
+                              setDeleteConfirm({ exIdx: idx, exerciseName: name, doneSets: doneSetsCount });
+                            } else {
+                              applyDelete(idx);
+                            }
+                          }}
+                        />
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
-          )
+                </SortableContext>
+              </DndContext>
+            )}
+
+            <button
+              onClick={() => {
+                haptic("light");
+                setAddModal(true);
+              }}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-bold transition-all hover:bg-[var(--red-600)]/8"
+              style={{
+                border: "1.5px dashed var(--border)",
+                color: "var(--text-muted)",
+              }}
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Adicionar exercício
+            </button>
+          </>
         ) : (
           <div className="stagger space-y-3">
             {sorted.map((ex, idx) => {
@@ -779,6 +892,19 @@ function TreinoContent() {
           }}
         />
       )}
+
+      {/* Add Exercise Modal */}
+      {addModal && (
+        <ExerciseSearchModal
+          mode="builder"
+          onSelectWithDetails={(ex, sets, reps) => {
+            applyAdd(ex, sets, reps);
+            setAddModal(false);
+          }}
+          onClose={() => setAddModal(false)}
+          equipmentWhitelist={locationType === "quartel" ? QUARTEL_EQUIPMENT_WHITELIST : undefined}
+        />
+      )}
     </div>
   );
 }
@@ -814,6 +940,50 @@ const MOTIVATIONAL_QUOTES = [
   "VOCÊ GANHOU O DIA",
   "DISCIPLINA BATE MOTIVAÇÃO TODOS OS DIAS",
 ];
+
+function SortableEditCard({
+  id,
+  index,
+  name,
+  sets,
+  reps,
+  onDelete,
+}: {
+  id: string;
+  index: number;
+  name: string;
+  sets: number;
+  reps: string;
+  onDelete: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <EditModeCard
+      index={index}
+      name={name}
+      sets={sets}
+      reps={reps}
+      onDelete={onDelete}
+      dragHandleProps={{ ...attributes, ...listeners }}
+      isDragging={isDragging}
+      style={style}
+      setNodeRef={setNodeRef}
+    />
+  );
+}
 
 function WorkoutComplete({
   routineName,
