@@ -47,6 +47,7 @@ node scripts/seed-exercises.mjs
 | `workouts/{id}/routines/{id}` | Routine with ordered exercises list |
 | `workout_history/{id}` | Logged workout sessions with per-set performance + optional notes |
 | `taf_attempts/{id}` | Tentativas de TAF (imutáveis); `type: full | single`, snapshot de gender/age_group |
+| `cardio_sessions/{id}` | Sessões de cardio (imutáveis); `modality`, `duration_sec`, `distance_km?` |
 
 ### Key Flows
 
@@ -90,6 +91,14 @@ node scripts/seed-exercises.mjs
 - The `ExerciseCard` header must be a `<div role="button">` (not `<button>`) because the swap button is nested inside it — HTML forbids nested `<button>` elements
 - On finish: saves `WorkoutLog` with per-set data + optional notes to `workout_history`
 
+**Cardio mode** (`/cardio` + `/cardio/sessao`):
+- Rota dedicada acessada pela BottomNav (entre Histórico e TAF). Suporta 6 modalidades: `corrida_ar_livre`, `esteira`, `bike`, `eliptico`, `stepper`, `remo`.
+- Hub (`/cardio`): botão "Iniciar sessão" → `CardioModalityPicker` (bottom-sheet) → navega para `/cardio/sessao?m=<modality>`. Exibe PRs por modalidade (maior distância, melhor pace) e últimas 5 sessões com delete.
+- Sessão (`/cardio/sessao?m=...`): cronômetro live com wall-clock (`startedAtRef + accumulatedRef`, ticks a cada 100ms, suporta pause/resume). Estado persistido em `localStorage` (key `mirafit_cardio_active`) para sobreviver refresh. Ao finalizar, exibe resumo editável com campos MIN/SEG + distância opcional (km). Salva em `cardio_sessions` via `createCardioSession`.
+- Métricas: `duration_sec` (sempre obrigatório, mínimo 10s) + `distance_km` (opcional). Pace calculado no read (`duration_sec / distance_km`), nunca persistido. Pace só exibido em `corrida_ar_livre` e `esteira` com `distance_km >= 1`.
+- Sessões são imutáveis — para corrigir, registra uma nova.
+- `src/lib/cardioSessions.ts`: `createCardioSession`, `deleteCardioSession`, `getCardioSessions`, `getCardioPRs` (single-pass reduce), `MODALITY_LABELS`, helpers `formatDuration`/`formatPace`/`formatDistance`.
+
 **TAF mode** (`/taf` + `/taf/tentativa`):
 - Rota dedicada acessada pela BottomNav (entre Histórico e Perfil). Sexo e faixa etária continuam sendo configurados no `/profile`.
 - Dashboard lê `taf_attempts` + `workout_history` e mostra melhor PR por evento.
@@ -129,6 +138,7 @@ All required composite indexes are active in production:
 - `workout_history`: `user_id ASC, date DESC`
 - `taf_attempts`: `user_id ASC, date DESC`
 - `body_measurements`: `user_id ASC, date DESC`
+- `cardio_sessions`: `user_id ASC, date DESC`
 - `workouts`: `is_active ASC, user_id ASC, created_at DESC`
 - `workouts`: `is_active ASC, location_type ASC, user_id ASC, created_at DESC`
 
