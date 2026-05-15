@@ -11,14 +11,7 @@ import {
 } from '@/lib/cardioSessions';
 
 const LS_KEY = 'mirafit_cardio_active';
-const VALID_MODALITIES = new Set<string>([
-  'corrida_ar_livre',
-  'esteira',
-  'bike',
-  'eliptico',
-  'stepper',
-  'remo',
-]);
+const VALID_MODALITIES = new Set(Object.keys(MODALITY_LABELS));
 
 interface PersistedSession {
   startedAtMs: number | null;
@@ -31,11 +24,13 @@ function persistSession(
   accumulatedMs: number,
   modality: string
 ) {
+  if (typeof window === 'undefined') return;
   const data: PersistedSession = { startedAtMs, accumulatedMs, modality };
   localStorage.setItem(LS_KEY, JSON.stringify(data));
 }
 
 function clearPersistedSession() {
+  if (typeof window === 'undefined') return;
   localStorage.removeItem(LS_KEY);
 }
 
@@ -181,6 +176,7 @@ function CardioSessaoContent() {
   // ── Resume ────────────────────────────────────────────────────────────────
   function handleResume() {
     startedAtRef.current = Date.now();
+    persistSession(startedAtRef.current, accumulatedRef.current, modality ?? '');
     setPhase('running');
     startInterval();
   }
@@ -335,7 +331,7 @@ function CardioSessaoContent() {
             {phase === 'running' ? (
               <button
                 onClick={handlePause}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm"
+                className="tactile flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm"
                 style={{
                   background: 'var(--surface-2)',
                   border: '1px solid var(--border)',
@@ -356,7 +352,7 @@ function CardioSessaoContent() {
             ) : (
               <button
                 onClick={handleResume}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm"
+                className="tactile flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm"
                 style={{
                   background: 'var(--surface-2)',
                   border: '1px solid var(--border)',
@@ -377,7 +373,7 @@ function CardioSessaoContent() {
 
             <button
               onClick={handleFinish}
-              className="px-6 py-3 rounded-xl font-semibold text-sm"
+              className="tactile px-6 py-3 rounded-xl font-semibold text-sm"
               style={{
                 background: 'transparent',
                 border: '1px solid var(--border)',
