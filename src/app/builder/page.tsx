@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { LibraryExercise, LocationType } from "@/types";
@@ -46,6 +46,11 @@ function BuilderContent() {
   const [showResolveSearch, setShowResolveSearch] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const saveAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => { saveAbortRef.current?.abort(); };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -170,6 +175,9 @@ function BuilderContent() {
 
   const handleSave = async () => {
     if (!user || !canSave) return;
+    saveAbortRef.current?.abort();
+    const controller = new AbortController();
+    saveAbortRef.current = controller;
     setSaving(true);
     setError("");
 
@@ -196,6 +204,7 @@ function BuilderContent() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
+        signal: controller.signal,
       });
 
       const data = await res.json();
@@ -203,6 +212,7 @@ function BuilderContent() {
 
       router.push("/");
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       setError(err instanceof Error ? err.message : "Erro ao salvar treino");
     } finally {
       setSaving(false);
@@ -375,7 +385,7 @@ function BuilderContent() {
                           isUnresolved ? "italic text-[var(--text-muted)]" : ""
                         }`}
                       >
-                        {isUnresolved ? ex.unresolved!.raw_name : translateExerciseName(ex.name)}
+                        {isUnresolved ? ex.unresolved?.raw_name : translateExerciseName(ex.name)}
                       </p>
                       <p className="mt-0.5 text-xs text-[var(--text-dim)]">
                         {isUnresolved ? "Do PDF · " : ""}
@@ -491,9 +501,9 @@ function BuilderContent() {
       {resolvingIdx !== null &&
         routines[activeTab]?.exercises[resolvingIdx]?.unresolved && (
           <ResolveUnmatchedModal
-            rawName={routines[activeTab].exercises[resolvingIdx].unresolved!.raw_name}
-            targetMuscle={routines[activeTab].exercises[resolvingIdx].unresolved!.target_muscle}
-            suggestionIds={routines[activeTab].exercises[resolvingIdx].unresolved!.suggestions}
+            rawName={routines[activeTab].exercises[resolvingIdx].unresolved?.raw_name ?? ""}
+            targetMuscle={routines[activeTab].exercises[resolvingIdx].unresolved?.target_muscle}
+            suggestionIds={routines[activeTab].exercises[resolvingIdx].unresolved?.suggestions}
             onResolve={(libEx) => resolveExercise(resolvingIdx, libEx)}
             onSearchManual={() => {
               setShowResolveSearch(true);
@@ -506,7 +516,7 @@ function BuilderContent() {
         routines[activeTab]?.exercises[resolvingIdx]?.unresolved && (
           <ExerciseSearchModal
             mode="swap"
-            targetMuscle={routines[activeTab].exercises[resolvingIdx].unresolved!.target_muscle}
+            targetMuscle={routines[activeTab].exercises[resolvingIdx].unresolved?.target_muscle}
             onSelect={(libEx) => resolveExercise(resolvingIdx, libEx)}
             onClose={() => setShowResolveSearch(false)}
           />

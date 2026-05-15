@@ -43,7 +43,7 @@ function playAlert(ctx: AudioContext | null | undefined) {
       osc.start(ctx.currentTime + offset);
       osc.stop(ctx.currentTime + offset + 0.3);
     });
-  });
+  }).catch(() => {});
 }
 
 function getSavedDuration(fallback: number): number {

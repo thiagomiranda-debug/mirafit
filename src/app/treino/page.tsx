@@ -157,7 +157,7 @@ function TreinoContent() {
       const sorted = [...data.exercises].sort((a, b) => a.order - b.order);
       setInputs(
         sorted.map((ex) => {
-          const prev = lastPerfMap[ex.exercise_id] || [];
+          const prev = lastPerfMap[ex.exercise_id] ?? [];
           return {
             exercise_id: ex.exercise_id,
             sets: Array.from({ length: ex.sets }, (_, i) => ({
@@ -196,7 +196,7 @@ function TreinoContent() {
       const doIt = () => {
         updateRoutineExercises(workoutId, routineId, exercises).catch(() => {
           setEditError(true);
-          loadRoutine();
+          loadRoutine().catch(() => {});
         });
       };
       if (immediate) doIt();
@@ -257,7 +257,7 @@ function TreinoContent() {
       },
     ];
 
-    const prev = lastPerf[newEx.id] || [];
+    const prev = lastPerf[newEx.id] ?? [];
     const newInput: ExerciseInput = {
       exercise_id: newEx.id,
       sets: Array.from({ length: newSets }, (_, i) => ({
@@ -290,6 +290,8 @@ function TreinoContent() {
     value: string
   ) {
     setInputs((prev) => {
+      if (exIdx < 0 || exIdx >= prev.length) return prev;
+      if (setIdx < 0 || setIdx >= prev[exIdx].sets.length) return prev;
       const next = [...prev];
       const sets = [...next[exIdx].sets];
       sets[setIdx] = { ...sets[setIdx], [field]: value };
@@ -321,8 +323,11 @@ function TreinoContent() {
   }
 
   function markSetDone(exIdx: number, setIdx: number) {
+    if (exIdx < 0 || exIdx >= inputs.length) return;
+    if (setIdx < 0 || setIdx >= inputs[exIdx].sets.length) return;
     const wasDone = inputs[exIdx].sets[setIdx].done;
     setInputs((prev) => {
+      if (exIdx >= prev.length || setIdx >= prev[exIdx].sets.length) return prev;
       const next = [...prev];
       const sets = [...next[exIdx].sets];
       sets[setIdx] = { ...sets[setIdx], done: !sets[setIdx].done };
@@ -1050,7 +1055,10 @@ function WorkoutComplete({
 
   async function generateShareCard(): Promise<Blob | null> {
     try {
-      await document.fonts.ready;
+      await Promise.race([
+        document.fonts.ready,
+        new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+      ]);
 
       const W = 1080;
       const H = 1920;

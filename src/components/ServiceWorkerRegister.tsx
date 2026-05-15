@@ -17,13 +17,19 @@ export default function ServiceWorkerRegister() {
     }
 
     // Em produção, registra normalmente e força atualização
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+
     navigator.serviceWorker
       .register("/sw.js")
       .then((reg) => {
         // Verifica atualizações do SW a cada 30 minutos
-        setInterval(() => reg.update(), 30 * 60 * 1000);
+        intervalId = setInterval(() => reg.update(), 30 * 60 * 1000);
       })
       .catch((err) => console.warn("[SW] Registro falhou:", err));
+
+    return () => {
+      if (intervalId !== undefined) clearInterval(intervalId);
+    };
   }, []);
 
   return null;

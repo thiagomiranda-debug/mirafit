@@ -90,17 +90,17 @@ function CardioSessaoContent() {
   }, []);
 
   // ── Start interval ────────────────────────────────────────────────────────
-  function startInterval() {
+  const startInterval = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = setInterval(tick, 100);
-  }
+  }, [tick]);
 
-  function stopInterval() {
+  const stopInterval = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-  }
+  }, []);
 
   // ── Hydrate from localStorage on mount ───────────────────────────────────
   useEffect(() => {
@@ -130,8 +130,7 @@ function CardioSessaoContent() {
     startInterval();
 
     return () => stopInterval();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modality]);
+  }, [modality, startInterval, stopInterval]);
 
   // ── visibilitychange ─────────────────────────────────────────────────────
   useEffect(() => {

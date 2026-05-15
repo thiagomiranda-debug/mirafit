@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getExercisesByMuscle, getDistinctMuscleGroups } from "@/lib/workouts";
 import { LibraryExercise } from "@/types";
 import { translateExerciseName } from "@/lib/exerciseNames";
@@ -63,10 +63,17 @@ export default function ExerciseSearchModal({
   const [detailReps, setDetailReps] = useState("10-12");
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [imgErrors, setImgErrors] = useState<Set<string>>(new Set());
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    };
+  }, []);
 
   const activeMuscle = mode === "builder" ? selectedMuscle : targetMuscle || "";
 
-  const fetchExercises = (muscle: string) => {
+  const fetchExercises = useCallback((muscle: string) => {
     setLoading(true);
     setExercises([]);
     getExercisesByMuscle(muscle, 50)
@@ -82,7 +89,7 @@ export default function ExerciseSearchModal({
         setExercises(results);
       })
       .finally(() => setLoading(false));
-  };
+  }, [currentExerciseId, equipmentWhitelist]);
 
   // Swap mode: fetch on mount; Builder mode: fetch muscle groups
   useEffect(() => {
@@ -92,8 +99,7 @@ export default function ExerciseSearchModal({
     if (mode === "builder") {
       getDistinctMuscleGroups().then(setMuscleGroups);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [mode, activeMuscle, fetchExercises]);
 
   const filtered = search.trim()
     ? exercises.filter((e) =>
@@ -124,7 +130,8 @@ export default function ExerciseSearchModal({
     setDetailSets(3);
     setDetailReps("10-12");
     // Brief visual feedback — clear after 2s
-    setTimeout(() => {
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    feedbackTimerRef.current = setTimeout(() => {
       setAddedIds((prev) => {
         const next = new Set(prev);
         next.delete(ex.id);
