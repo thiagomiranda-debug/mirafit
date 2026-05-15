@@ -23,22 +23,25 @@ export default function CardioPage() {
   const [loading, setLoading] = useState(true);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [user, setUser] = useState<{ uid: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
     const auth = getFirebaseAuth();
     const unsub = onAuthStateChanged(auth, async (u) => {
       if (!u) {
         router.push('/login');
         return;
       }
-      setUser({ uid: u.uid });
       const data = await getCardioSessions(u.uid, 200);
+      if (!isMounted) return;
       setSessions(data);
       setLoading(false);
     });
-    return () => unsub();
+    return () => {
+      isMounted = false;
+      unsub();
+    };
   }, [router]);
 
   const prs = useMemo(
@@ -70,9 +73,11 @@ export default function CardioPage() {
     try {
       await deleteCardioSession(deleteConfirmId);
       setSessions((prev) => prev.filter((s) => s.id !== deleteConfirmId));
+      setDeleteConfirmId(null);
+    } catch (err) {
+      console.error('Erro ao excluir sessão:', err);
     } finally {
       setDeleting(false);
-      setDeleteConfirmId(null);
     }
   }
 
