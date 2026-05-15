@@ -34,6 +34,15 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: "/cardio",
+    label: "Cardio",
+    icon: (active: boolean) => (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={active ? 2.5 : 1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 12h3l2-4 3 8 2-4h8" />
+      </svg>
+    ),
+  },
+  {
     href: "/taf",
     label: "TAF",
     icon: (active: boolean) => (

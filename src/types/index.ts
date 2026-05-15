@@ -96,6 +96,23 @@ export interface WorkoutLog {
   location_type?: LocationType;
 }
 
+export type CardioModality =
+  | 'corrida_ar_livre'
+  | 'esteira'
+  | 'bike'
+  | 'eliptico'
+  | 'stepper'
+  | 'remo';
+
+export interface CardioSession {
+  id?: string;
+  user_id: string;
+  date: Date;
+  modality: CardioModality;
+  duration_sec: number;
+  distance_km?: number;
+}
+
 export interface BodyMeasurement {
   id?: string;
   user_id: string;
