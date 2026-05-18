@@ -49,5 +49,14 @@ service cloud.firestore {
       allow update: if false;
       allow delete: if false;
     }
+
+    // Sessoes de cardio: imutaveis apos criacao (para corrigir, cria uma nova).
+    // Delete e permitido pois o hub /cardio expoe remocao das ultimas sessoes.
+    match /cardio_sessions/{sessionId} {
+      allow read: if request.auth != null && resource.data.user_id == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
+      allow update: if false;
+      allow delete: if request.auth != null && resource.data.user_id == request.auth.uid;
+    }
   }
 }
