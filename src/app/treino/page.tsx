@@ -111,7 +111,15 @@ function TreinoContent() {
   } | null>(null);
   const [editError, setEditError] = useState(false);
   const [addModal, setAddModal] = useState(false);
+  const [openMap, setOpenMap] = useState<Record<number, boolean>>({});
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scrollToExerciseCard = useCallback((idx: number) => {
+    requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLElement>(`[data-exercise-idx="${idx}"]`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -383,15 +391,10 @@ function TreinoContent() {
             targetMuscle: nextLib?.target_muscle,
             lastPerformance: lastSummary || undefined,
           };
-        }
-        // Auto-scroll suave para o próximo exercício
-        if (sortedEx[exIdx + 1]) {
-          setTimeout(() => {
-            const nextEl = document.querySelector(
-              `[data-exercise-idx="${exIdx + 1}"]`
-            );
-            nextEl?.scrollIntoView({ behavior: "smooth", block: "start" });
-          }, 300);
+          setOpenMap((prev) => ({ ...prev, [exIdx]: false, [exIdx + 1]: true }));
+          scrollToExerciseCard(exIdx + 1);
+        } else {
+          setOpenMap((prev) => ({ ...prev, [exIdx]: false }));
         }
       }
 
@@ -768,6 +771,10 @@ function TreinoContent() {
                     index={idx}
                     training={training}
                     isActive={isActive}
+                    open={openMap[idx] ?? false}
+                    onToggleOpen={() =>
+                      setOpenMap((prev) => ({ ...prev, [idx]: !(prev[idx] ?? false) }))
+                    }
                     setInputs={exInput.sets}
                     lastSets={lastPerf[ex.exercise_id] || []}
                     personalRecord={prMap[ex.exercise_id] ?? 0}
@@ -1512,6 +1519,8 @@ function ExerciseCard({
   index,
   training,
   isActive = false,
+  open,
+  onToggleOpen,
   setInputs,
   lastSets,
   personalRecord,
@@ -1529,6 +1538,8 @@ function ExerciseCard({
   index: number;
   training: boolean;
   isActive?: boolean;
+  open: boolean;
+  onToggleOpen: () => void;
   setInputs: SetInput[];
   lastSets: SetPerformance[];
   personalRecord: number;
@@ -1536,7 +1547,6 @@ function ExerciseCard({
   onSetDone: (setIdx: number) => void;
   onSwap?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [imgOk, setImgOk] = useState(true);
 
   function openYouTube(query: string) {
@@ -1581,8 +1591,8 @@ function ExerciseCard({
       <div
         role="button"
         tabIndex={0}
-        onClick={() => setOpen((v) => !v)}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setOpen((v) => !v); }}
+        onClick={onToggleOpen}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onToggleOpen(); }}
         className="flex w-full cursor-pointer items-center gap-3 px-4 py-3.5 text-left"
       >
         <span
