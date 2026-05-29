@@ -394,6 +394,7 @@ function EvolutionCard({
     <div
       role="button"
       tabIndex={0}
+      aria-label={`Ver histórico de ${exerciseName}`}
       onClick={() => {
         haptic("light");
         router.push(`/exercicio?id=${encodeURIComponent(exerciseId)}`);
@@ -401,6 +402,7 @@ function EvolutionCard({
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
+          haptic("light");
           router.push(`/exercicio?id=${encodeURIComponent(exerciseId)}`);
         }
       }}
