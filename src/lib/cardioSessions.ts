@@ -117,6 +117,7 @@ export function getCardioPRs(
 
   for (const s of sessions) {
     const pr = result[s.modality];
+    if (!pr) continue; // modalidade desconhecida/legada — ignora em vez de crashar
     if (now - s.date.getTime() <= fourWeeksMs) {
       pr.sessionsCount4w += 1;
     }
@@ -148,7 +149,9 @@ function mapSessionDocs(
       date:
         data.date instanceof Timestamp
           ? data.date.toDate()
-          : new Date(data.date as string),
+          : data.date
+          ? new Date(data.date as string)
+          : new Date(),
       modality: data.modality as CardioModality,
       duration_sec: data.duration_sec as number,
       distance_km: data.distance_km as number | undefined,

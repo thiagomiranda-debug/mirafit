@@ -46,10 +46,16 @@ export async function POST(req: NextRequest) {
     if (!Array.isArray(routines) || routines.length === 0) {
       return NextResponse.json({ error: "Pelo menos uma rotina é necessária" }, { status: 400 });
     }
+    if (routines.length > 6) {
+      return NextResponse.json({ error: "Máximo de 6 divisões por treino" }, { status: 400 });
+    }
 
     for (const routine of routines) {
       if (!routine.name || !Array.isArray(routine.exercises) || routine.exercises.length === 0) {
         return NextResponse.json({ error: `Rotina "${routine.name || "?"}" precisa de pelo menos um exercício` }, { status: 400 });
+      }
+      if (routine.exercises.length > 30) {
+        return NextResponse.json({ error: `Rotina "${routine.name}" tem exercícios demais (máx 30)` }, { status: 400 });
       }
       for (const ex of routine.exercises) {
         if (!ex.exercise_id || !ex.reps || typeof ex.sets !== "number" || ex.sets < 1) {

@@ -177,6 +177,7 @@ export default function CardioPage() {
             >
               {recentSessions.map((session) => {
                 const info = MODALITY_LABELS[session.modality];
+                if (!info) return null; // modalidade desconhecida/legada — não renderiza
                 const dateStr = new Intl.DateTimeFormat('pt-BR', {
                   day: '2-digit',
                   month: 'short',

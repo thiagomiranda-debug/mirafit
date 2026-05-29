@@ -160,7 +160,11 @@ function mapAttemptDocs(
       id: docSnap.id,
       user_id: data.user_id as string,
       date:
-        data.date instanceof Timestamp ? data.date.toDate() : new Date(data.date as string),
+        data.date instanceof Timestamp
+          ? data.date.toDate()
+          : data.date
+          ? new Date(data.date as string)
+          : new Date(),
       type: data.type as TafAttemptType,
       gender: data.gender as TafGender,
       age_group: data.age_group as TafAgeGroup,
