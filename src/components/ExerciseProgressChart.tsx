@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   ResponsiveContainer,
   LineChart,
@@ -25,7 +25,7 @@ export default function ExerciseProgressChart({
   data,
   unit,
 }: ExerciseProgressChartProps) {
-  const [colors, setColors] = useState(() => {
+  const [colors] = useState(() => {
     if (typeof document === "undefined") {
       return { red: "#EF4444", amber: "#F59E0B", muted: "#6B7280" };
     }
@@ -39,19 +39,6 @@ export default function ExerciseProgressChart({
       muted: muted || "#6B7280",
     };
   });
-
-  useEffect(() => {
-    const style = getComputedStyle(document.documentElement);
-    const red = style.getPropertyValue("--red-500").trim();
-    const amber = style.getPropertyValue("--amber-500").trim();
-    const muted = style.getPropertyValue("--text-dim").trim();
-    const next = {
-      red: red || "#EF4444",
-      amber: amber || "#F59E0B",
-      muted: muted || "#6B7280",
-    };
-    void Promise.resolve().then(() => setColors(next));
-  }, []);
 
   if (data.length < 2) {
     return (
