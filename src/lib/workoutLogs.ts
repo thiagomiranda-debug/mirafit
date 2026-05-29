@@ -7,6 +7,7 @@ import {
   orderBy,
   limit,
   serverTimestamp,
+  getCountFromServer,
   Timestamp,
 } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase";
@@ -33,6 +34,19 @@ export async function saveWorkoutLog(
   const docRef = await addDoc(collection(db, "workout_history"), payload);
   invalidateWorkoutLogs(userId);
   return docRef.id;
+}
+
+/**
+ * Conta o total de sessões de treino do usuário via agregação server-side
+ * (não baixa os documentos). Usado no KPI "Treinos" da home, que não pode
+ * depender de logs.length — limitado pela janela carregada em memória (≤120).
+ */
+export async function getWorkoutCount(userId: string): Promise<number> {
+  const db = getFirebaseDb();
+  const snap = await getCountFromServer(
+    query(collection(db, "workout_history"), where("user_id", "==", userId))
+  );
+  return snap.data().count;
 }
 
 export async function getWorkoutLogs(

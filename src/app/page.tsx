@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getUserProfile } from "@/lib/userProfile";
 import { getActiveWorkoutByLocation } from "@/lib/workouts";
 import { getCachedWorkoutLogs } from "@/lib/workoutLogsCache";
+import { getWorkoutCount } from "@/lib/workoutLogs";
 import { calculateStreak, StreakData } from "@/lib/streaks";
 import {
   notificationPermission,
@@ -107,10 +108,20 @@ export default function Home() {
     setWorkout(w);
     setPageLoading(false);
 
-    getCachedWorkoutLogs(user.uid, 30).then((logs) => {
+    getCachedWorkoutLogs(user.uid, 120).then((logs) => {
       const data = calculateStreak(logs);
       setStreak(data);
       setRecentLogs(logs);
+
+      // Total real de treinos via contagem server-side. logs.length é limitado
+      // pela janela carregada (≤120), o que subcontava o KPI de usuários ativos.
+      getWorkoutCount(user.uid)
+        .then((count) =>
+          setStreak((prev) =>
+            prev ? { ...prev, totalWorkouts: count } : { ...data, totalWorkouts: count }
+          )
+        )
+        .catch(() => {});
 
       const perm = notificationPermission();
       if (perm === "default" && !alreadyShownToday(user.uid)) {

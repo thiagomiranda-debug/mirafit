@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { getExercisesByIds, updateRoutineExercise, updateRoutineExercises } from "@/lib/workouts";
+import { getExercisesByIds, updateRoutineExercises } from "@/lib/workouts";
 import { saveWorkoutLog, getPerfAndRecords } from "@/lib/workoutLogs";
 import { LibraryExercise, Routine, ExercisePerformance, SetPerformance, LocationType, WorkoutExercise } from "@/types";
 import { QUARTEL_EQUIPMENT_WHITELIST } from "@/lib/workoutGenerator";
@@ -402,16 +402,18 @@ function TreinoContent() {
     }
   }
 
-  function handleSwapExercise(exIdx: number, newExercise: LibraryExercise, oldExerciseId: string) {
+  function handleSwapExercise(exIdx: number, newExercise: LibraryExercise) {
+    if (!routine) return;
     const prevRoutine = routine;
     const prevInputs = inputs;
 
-    setRoutine((prev) => {
-      if (!prev) return prev;
-      const sorted = [...prev.exercises].sort((a, b) => a.order - b.order);
-      sorted[exIdx] = { ...sorted[exIdx], exercise_id: newExercise.id };
-      return { ...prev, exercises: sorted };
-    });
+    // Troca por posição (exIdx), nunca por exercise_id: a rotina pode conter o
+    // mesmo exercício mais de uma vez e uma troca por id afetaria todas as cópias.
+    const sorted = [...routine.exercises].sort((a, b) => a.order - b.order);
+    const nextExercises = sorted.map((ex, i) =>
+      i === exIdx ? { ...ex, exercise_id: newExercise.id } : ex
+    );
+    setRoutine({ ...routine, exercises: nextExercises });
 
     setExercises((prev) => ({ ...prev, [newExercise.id]: newExercise }));
 
@@ -433,7 +435,7 @@ function TreinoContent() {
     setSwapError(false);
 
     if (workoutId && routineId) {
-      updateRoutineExercise(workoutId, routineId, oldExerciseId, newExercise.id).catch(() => {
+      updateRoutineExercises(workoutId, routineId, nextExercises).catch(() => {
         setRoutine(prevRoutine);
         setInputs(prevInputs);
         setSwapError(true);
@@ -886,7 +888,7 @@ function TreinoContent() {
         <ExerciseSearchModal
           currentExerciseId={swapModal.exerciseId}
           targetMuscle={swapModal.muscle}
-          onSelect={(ex) => handleSwapExercise(swapModal.exIdx, ex, swapModal.exerciseId)}
+          onSelect={(ex) => handleSwapExercise(swapModal.exIdx, ex)}
           onClose={() => setSwapModal(null)}
           equipmentWhitelist={locationType === "quartel" ? QUARTEL_EQUIPMENT_WHITELIST : undefined}
         />

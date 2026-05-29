@@ -2,7 +2,6 @@ import {
   collection,
   doc,
   getDocs,
-  getDoc,
   query,
   where,
   orderBy,
@@ -216,27 +215,9 @@ export async function getActiveWorkoutByLocation(
   return { ...workout, routines };
 }
 
-// Troca um exercício em uma rotina já salva — persiste a mudança no Firestore
-export async function updateRoutineExercise(
-  workoutId: string,
-  routineId: string,
-  oldExerciseId: string,
-  newExerciseId: string
-): Promise<void> {
-  const db = getFirebaseDb();
-  const routineRef = doc(db, "workouts", workoutId, "routines", routineId);
-  const snap = await getDoc(routineRef);
-  if (!snap.exists()) return;
-  const exercises = (
-    snap.data().exercises as Array<{ exercise_id: string } & Record<string, unknown>>
-  ).map((ex) =>
-    ex.exercise_id === oldExerciseId ? { ...ex, exercise_id: newExerciseId } : ex
-  );
-  await updateDoc(routineRef, { exercises });
-}
-
 // Sobrescreve o array completo de exercises de uma routine — usado pelo modo edição
-// que faz add/delete/reorder. As regras do Firestore validam o user_id do workout pai.
+// (add/delete/reorder) e pela troca de exercício. As regras do Firestore validam
+// o user_id do workout pai.
 export async function updateRoutineExercises(
   workoutId: string,
   routineId: string,
