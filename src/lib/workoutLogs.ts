@@ -77,12 +77,9 @@ export async function getLastPerformanceMap(
     for (const perf of log.performance) {
       if (map[perf.exercise_id]) continue; // já encontrou o mais recente
 
-      if (perf.sets && perf.sets.length > 0) {
-        map[perf.exercise_id] = perf.sets;
-      } else if (perf.weight_lifted !== undefined && perf.reps_done !== undefined) {
-        // Converte formato legado para o novo formato
-        map[perf.exercise_id] = [{ weight: perf.weight_lifted, reps: perf.reps_done }];
-      }
+      const sets = normalizePerfSets(perf);
+      if (sets.length === 0) continue;
+      map[perf.exercise_id] = sets;
     }
   }
 
@@ -102,18 +99,8 @@ export async function getPersonalRecords(
 
   for (const log of logs) {
     for (const perf of log.performance) {
-      let sets: SetPerformance[];
-
-      if (perf.sets && perf.sets.length > 0) {
-        sets = perf.sets;
-      } else if (
-        perf.weight_lifted !== undefined &&
-        perf.reps_done !== undefined
-      ) {
-        sets = [{ weight: perf.weight_lifted, reps: perf.reps_done }];
-      } else {
-        continue;
-      }
+      const sets = normalizePerfSets(perf);
+      if (sets.length === 0) continue;
 
       const pr = best1RMFromSets(sets);
       if (pr > (records[perf.exercise_id] ?? 0)) {
@@ -141,18 +128,8 @@ export async function getPerfAndRecords(userId: string): Promise<{
 
   for (const log of logs) {
     for (const perf of log.performance) {
-      let sets: SetPerformance[];
-
-      if (perf.sets && perf.sets.length > 0) {
-        sets = perf.sets;
-      } else if (
-        perf.weight_lifted !== undefined &&
-        perf.reps_done !== undefined
-      ) {
-        sets = [{ weight: perf.weight_lifted, reps: perf.reps_done }];
-      } else {
-        continue;
-      }
+      const sets = normalizePerfSets(perf);
+      if (sets.length === 0) continue;
 
       // lastPerfMap: só guarda a primeira aparição (log mais recente)
       if (!lastPerfMap[perf.exercise_id]) {
