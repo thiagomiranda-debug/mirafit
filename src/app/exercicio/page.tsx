@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { getExercisesByIds } from "@/lib/workouts";
 import { getExerciseDetail, ExerciseDetail } from "@/lib/workoutLogs";
-import { LibraryExercise } from "@/types";
+import { LibraryExercise, SetPerformance } from "@/types";
 import { translateExerciseName } from "@/lib/exerciseNames";
 import { generatePortugueseInstructions } from "@/lib/exerciseInstructions";
 import { best1RMFromSets, totalVolume } from "@/lib/metrics";
@@ -102,8 +102,12 @@ function ExerciseContent() {
         setLoading(false);
       }
     }
-    if (user && exerciseId) load();
-  }, [user, exerciseId]);
+    if (user && exerciseId) {
+      load();
+    } else if (!authLoading) {
+      setLoading(false);
+    }
+  }, [user, exerciseId, authLoading]);
 
   const chartData: ExerciseChartPoint[] = useMemo(() => {
     if (!detail) return [];
@@ -115,10 +119,11 @@ function ExerciseContent() {
         month: "short",
       });
       let value = 0;
-      if (metric === "weight") value = Math.max(...s.sets.map((x) => x.weight));
+      if (metric === "weight")
+        value = s.sets.length ? Math.max(...s.sets.map((x) => x.weight)) : 0;
       else if (metric === "1rm") value = Math.round(best1RMFromSets(s.sets));
       else if (metric === "volume") value = Math.round(totalVolume(s.sets));
-      else value = Math.max(...s.sets.map((x) => x.reps));
+      else value = s.sets.length ? Math.max(...s.sets.map((x) => x.reps)) : 0;
       return { dateLabel, value };
     });
   }, [detail, metric]);
@@ -229,7 +234,7 @@ function ExerciseContent() {
               Recordes
             </h2>
             <div className="grid grid-cols-2 gap-3">
-              <RecordCard label="🏆 Melhor 1RM" value={`${records.best1RM} kg`} />
+              <RecordCard label="🏆 Melhor 1RM" value={`${Math.round(records.best1RM)} kg`} />
               <RecordCard label="Peso máximo" value={`${records.maxWeight} kg`} />
               <RecordCard
                 label="Melhor série"
@@ -326,7 +331,7 @@ function SessionRow({
   sets,
 }: {
   date: Date;
-  sets: { weight: number; reps: number }[];
+  sets: SetPerformance[];
 }) {
   const formatted = date.toLocaleDateString("pt-BR", {
     day: "2-digit",
