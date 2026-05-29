@@ -11,7 +11,7 @@ import {
 } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase";
 import { WorkoutLog, ExercisePerformance, SetPerformance, LocationType } from "@/types";
-import { best1RMFromSets } from "@/lib/metrics";
+import { best1RMFromSets, epley1RM, totalVolume } from "@/lib/metrics";
 import { getCachedWorkoutLogs, invalidateWorkoutLogs } from "@/lib/workoutLogsCache";
 
 export async function saveWorkoutLog(
@@ -77,44 +77,13 @@ export async function getLastPerformanceMap(
     for (const perf of log.performance) {
       if (map[perf.exercise_id]) continue; // já encontrou o mais recente
 
-      if (perf.sets && perf.sets.length > 0) {
-        map[perf.exercise_id] = perf.sets;
-      } else if (perf.weight_lifted !== undefined && perf.reps_done !== undefined) {
-        // Converte formato legado para o novo formato
-        map[perf.exercise_id] = [{ weight: perf.weight_lifted, reps: perf.reps_done }];
-      }
+      const sets = normalizePerfSets(perf);
+      if (sets.length === 0) continue;
+      map[perf.exercise_id] = sets;
     }
   }
 
   return map;
-}
-
-export async function getExerciseHistory(
-  userId: string,
-  exerciseId: string,
-  maxResults: number = 10
-): Promise<{ date: Date; weight: number; reps: number }[]> {
-  const logs = await getWorkoutLogs(userId, 50);
-  const history: { date: Date; weight: number; reps: number }[] = [];
-
-  for (const log of logs) {
-    const perf = log.performance.find((p) => p.exercise_id === exerciseId);
-    if (perf) {
-      let weight = 0;
-      let reps = 0;
-      if (perf.sets && perf.sets.length > 0) {
-        weight = Math.max(...perf.sets.map((s) => s.weight));
-        reps = Math.round(perf.sets.reduce((a, s) => a + s.reps, 0) / perf.sets.length);
-      } else {
-        weight = perf.weight_lifted ?? 0;
-        reps = perf.reps_done ?? 0;
-      }
-      history.push({ date: log.date, weight, reps });
-    }
-    if (history.length >= maxResults) break;
-  }
-
-  return history;
 }
 
 /**
@@ -130,18 +99,8 @@ export async function getPersonalRecords(
 
   for (const log of logs) {
     for (const perf of log.performance) {
-      let sets: SetPerformance[];
-
-      if (perf.sets && perf.sets.length > 0) {
-        sets = perf.sets;
-      } else if (
-        perf.weight_lifted !== undefined &&
-        perf.reps_done !== undefined
-      ) {
-        sets = [{ weight: perf.weight_lifted, reps: perf.reps_done }];
-      } else {
-        continue;
-      }
+      const sets = normalizePerfSets(perf);
+      if (sets.length === 0) continue;
 
       const pr = best1RMFromSets(sets);
       if (pr > (records[perf.exercise_id] ?? 0)) {
@@ -169,18 +128,8 @@ export async function getPerfAndRecords(userId: string): Promise<{
 
   for (const log of logs) {
     for (const perf of log.performance) {
-      let sets: SetPerformance[];
-
-      if (perf.sets && perf.sets.length > 0) {
-        sets = perf.sets;
-      } else if (
-        perf.weight_lifted !== undefined &&
-        perf.reps_done !== undefined
-      ) {
-        sets = [{ weight: perf.weight_lifted, reps: perf.reps_done }];
-      } else {
-        continue;
-      }
+      const sets = normalizePerfSets(perf);
+      if (sets.length === 0) continue;
 
       // lastPerfMap: só guarda a primeira aparição (log mais recente)
       if (!lastPerfMap[perf.exercise_id]) {
@@ -196,4 +145,90 @@ export async function getPerfAndRecords(userId: string): Promise<{
   }
 
   return { lastPerfMap, personalRecords };
+}
+
+export interface ExerciseSession {
+  date: Date;
+  sets: SetPerformance[];
+}
+
+export interface ExerciseRecords {
+  /** Melhor 1RM estimado (Epley) de qualquer série. */
+  best1RM: number;
+  /** Maior peso usado em qualquer série (kg). */
+  maxWeight: number;
+  /** Série com o maior 1RM estimado. */
+  bestSet: { weight: number; reps: number } | null;
+  /** Mais repetições numa única série. */
+  maxReps: number;
+  /** Maior volume Σ(peso×reps) somado numa única sessão. */
+  bestSessionVol: number;
+}
+
+export interface ExerciseDetail {
+  /** Sessões que contêm o exercício, mais recente → mais antiga. */
+  sessions: ExerciseSession[];
+  records: ExerciseRecords;
+}
+
+/**
+ * Normaliza a performance de um exercício para SetPerformance[].
+ * Lida com o formato novo (sets) e o legado (weight_lifted/reps_done).
+ * Retorna [] se não houver dado utilizável.
+ */
+function normalizePerfSets(perf: ExercisePerformance): SetPerformance[] {
+  if (perf.sets && perf.sets.length > 0) return perf.sets;
+  if (perf.weight_lifted !== undefined && perf.reps_done !== undefined) {
+    return [{ weight: perf.weight_lifted, reps: perf.reps_done }];
+  }
+  return [];
+}
+
+/**
+ * Detalhe completo de um exercício: todas as sessões registradas (mais recente
+ * primeiro) e os recordes pessoais. Lê os últimos 120 logs do cache.
+ */
+export async function getExerciseDetail(
+  userId: string,
+  exerciseId: string
+): Promise<ExerciseDetail> {
+  const logs = await getCachedWorkoutLogs(userId, 120);
+  const sessions: ExerciseSession[] = [];
+
+  for (const log of logs) {
+    const perf = log.performance.find((p) => p.exercise_id === exerciseId);
+    if (!perf) continue;
+    const sets = normalizePerfSets(perf);
+    if (sets.length === 0) continue;
+    const date = log.date instanceof Date ? log.date : new Date(log.date);
+    sessions.push({ date, sets });
+  }
+
+  // Logs do cache já vêm date desc; garante a ordem mesmo assim.
+  sessions.sort((a, b) => b.date.getTime() - a.date.getTime());
+
+  const records: ExerciseRecords = {
+    best1RM: 0,
+    maxWeight: 0,
+    bestSet: null,
+    maxReps: 0,
+    bestSessionVol: 0,
+  };
+
+  for (const session of sessions) {
+    const sessionVol = totalVolume(session.sets);
+    if (sessionVol > records.bestSessionVol) records.bestSessionVol = sessionVol;
+
+    for (const s of session.sets) {
+      if (s.weight > records.maxWeight) records.maxWeight = s.weight;
+      if (s.reps > records.maxReps) records.maxReps = s.reps;
+      const rm = epley1RM(s.weight, s.reps);
+      if (rm > records.best1RM) {
+        records.best1RM = rm;
+        records.bestSet = { weight: s.weight, reps: s.reps };
+      }
+    }
+  }
+
+  return { sessions, records };
 }
