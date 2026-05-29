@@ -256,6 +256,7 @@ function LogCard({
   log: WorkoutLog;
   exerciseNames: Record<string, string>;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
 
   const date = log.date instanceof Date ? log.date : new Date(log.date);
@@ -332,8 +333,19 @@ function LogCard({
                   translateExerciseName(p.exercise_id.replace(/-/g, " "));
                 return (
                   <tr key={i}>
-                    <td className="py-2 capitalize text-[var(--text-muted)]">
-                      {name}
+                    <td className="py-2 capitalize">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          haptic("light");
+                          router.push(
+                            `/exercicio?id=${encodeURIComponent(p.exercise_id)}`
+                          );
+                        }}
+                        className="text-left capitalize text-[var(--text-muted)] underline-offset-2 transition-colors hover:text-[var(--red-500)] hover:underline"
+                      >
+                        {name}
+                      </button>
                     </td>
                     <td className="py-2 text-right font-medium text-[var(--foreground)]">
                       {summarizeSets(p)}
@@ -371,6 +383,7 @@ function EvolutionCard({
   exerciseName: string;
   data: ChartDataPoint[];
 }) {
+  const router = useRouter();
   const first = data[0];
   const last = data[data.length - 1];
   const delta = last.value - first.value;
@@ -378,7 +391,21 @@ function EvolutionCard({
   const gradientId = `grad-${exerciseId.replace(/[^a-z0-9]/gi, "")}`;
 
   return (
-    <div className="animate-fade-in overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3.5">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => {
+        haptic("light");
+        router.push(`/exercicio?id=${encodeURIComponent(exerciseId)}`);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          router.push(`/exercicio?id=${encodeURIComponent(exerciseId)}`);
+        }
+      }}
+      className="tactile animate-fade-in cursor-pointer overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3.5 transition-colors hover:border-[var(--red-500)]/40"
+    >
       <div className="mb-1 flex items-start justify-between gap-2">
         <p className="font-semibold capitalize text-[var(--foreground)]">
           {exerciseName}
