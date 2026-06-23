@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ImportedWorkoutDraft } from "@/lib/pdfWorkoutImporter";
@@ -24,6 +25,15 @@ export default function HomeBuilderModal({ onClose }: Props) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
 
   const handleFromScratch = () => {
     onClose();
@@ -115,14 +125,26 @@ export default function HomeBuilderModal({ onClose }: Props) {
     fileInputRef.current?.click();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end">
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] flex items-end"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Montar treino manual"
+    >
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        aria-hidden="true"
         onClick={phase === "uploading" ? undefined : onClose}
       />
 
-      <div className="animate-slide-up relative w-full rounded-t-3xl bg-[var(--surface)] px-5 pb-8 pt-4" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+      <div
+        className="animate-slide-up relative max-h-[calc(100dvh-1rem)] w-full overflow-y-auto overscroll-contain rounded-t-3xl bg-[var(--surface)] px-5 pt-4"
+        style={{
+          borderTop: "1px solid var(--border-subtle)",
+          paddingBottom: "calc(env(safe-area-inset-bottom) + 2rem)",
+        }}
+      >
         <div
           className="mx-auto mb-5 h-1 w-12 rounded-full"
           style={{ background: "rgba(255,255,255,0.15)" }}
@@ -239,6 +261,7 @@ export default function HomeBuilderModal({ onClose }: Props) {
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
