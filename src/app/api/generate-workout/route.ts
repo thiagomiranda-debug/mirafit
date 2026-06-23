@@ -4,6 +4,7 @@ import { getAuth } from "firebase-admin/auth";
 import { generateWorkout, CARDIO_EQUIPMENTS, PreviousCycleContext, CatalogExercise } from "@/lib/workoutGenerator";
 import { UserProfile, LocationType, CyclePhase } from "@/types";
 import { initAdmin } from "@/lib/firebaseAdmin";
+import { buildGeneratedProgramName } from "@/lib/workoutPrograms";
 
 export async function POST(req: NextRequest) {
   try {
@@ -104,15 +105,22 @@ export async function POST(req: NextRequest) {
 
     // 5. Desativa anteriores e grava o novo
     const batch = db.batch();
-    activeSnap.docs.forEach((d) => batch.update(d.ref, { is_active: false }));
+    const createdAt = new Date();
+    const displayName = buildGeneratedProgramName(generated.workout_type, createdAt);
+    activeSnap.docs.forEach((d) =>
+      batch.update(d.ref, { is_active: false, ended_at: createdAt })
+    );
 
     const workoutRef = db.collection("workouts").doc();
     batch.set(workoutRef, {
       user_id: userId,
       workout_type: generated.workout_type,
+      display_name: displayName,
+      source: "generated",
       is_active: true,
       location_type: locationType,
-      created_at: new Date(),
+      created_at: createdAt,
+      ended_at: null,
       split_variant_id: generated.split_variant_id,
       cycle_phase: generated.cycle_phase,
     });
@@ -131,6 +139,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       workoutId: workoutRef.id,
       workout_type: generated.workout_type,
+      display_name: displayName,
       split_variant_id: generated.split_variant_id,
       cycle_phase: generated.cycle_phase,
       routines: generated.routines,

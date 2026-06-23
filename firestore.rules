@@ -29,7 +29,10 @@ service cloud.firestore {
     // Historico de treinos: imutavel apos criacao, so o dono acessa
     match /workout_history/{logId} {
       allow read: if request.auth != null && resource.data.user_id == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
+      allow create: if request.auth != null
+        && request.resource.data.user_id == request.auth.uid
+        && (!("workout_id" in request.resource.data)
+          || get(/databases/$(database)/documents/workouts/$(request.resource.data.workout_id)).data.user_id == request.auth.uid);
       allow update: if false;
       allow delete: if false;
     }

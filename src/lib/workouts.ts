@@ -9,9 +9,33 @@ import {
   serverTimestamp,
   writeBatch,
   updateDoc,
+  Timestamp,
 } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase";
 import { Workout, Routine, LibraryExercise, LocationType, WorkoutExercise } from "@/types";
+import { buildGeneratedProgramName } from "@/lib/workoutPrograms";
+
+function toDate(value: unknown): Date {
+  if (value instanceof Date) return value;
+  if (value instanceof Timestamp) return value.toDate();
+  if (value && typeof value === "object" && "toDate" in value) {
+    return (value as { toDate: () => Date }).toDate();
+  }
+  return new Date(0);
+}
+
+function mapWorkoutDoc(workoutDoc: {
+  id: string;
+  data: () => Record<string, unknown>;
+}): Workout {
+  const data = workoutDoc.data();
+  return {
+    ...(data as Omit<Workout, "id" | "created_at" | "ended_at">),
+    id: workoutDoc.id,
+    created_at: toDate(data.created_at),
+    ended_at: data.ended_at ? toDate(data.ended_at) : null,
+  };
+}
 
 // Busca exercícios por grupo muscular (para modal de troca de exercício)
 export async function getExercisesByMuscle(
@@ -91,7 +115,7 @@ export async function saveGeneratedWorkout(
     )
   );
   activeSnap.docs.forEach((d) => {
-    batch.update(d.ref, { is_active: false });
+    batch.update(d.ref, { is_active: false, ended_at: serverTimestamp() });
   });
 
   // Cria novo workout
@@ -99,8 +123,11 @@ export async function saveGeneratedWorkout(
   batch.set(workoutRef, {
     user_id: userId,
     workout_type: workoutType,
+    display_name: buildGeneratedProgramName(workoutType),
+    source: "generated",
     is_active: true,
     created_at: serverTimestamp(),
+    ended_at: null,
   });
 
   // Cria rotinas na subcoleção
@@ -135,7 +162,7 @@ export async function getActiveWorkout(
   if (snap.empty) return null;
 
   const workoutDoc = snap.docs[0];
-  const workout = { id: workoutDoc.id, ...workoutDoc.data() } as Workout;
+  const workout = mapWorkoutDoc(workoutDoc);
 
   const routinesSnap = await getDocs(
     query(
@@ -184,7 +211,7 @@ export async function getActiveWorkoutByLocation(
       (d) => (d.data().location_type || "gym") === locationType
     );
     if (!matched) return null;
-    const workout = { id: matched.id, ...matched.data() } as Workout;
+    const workout = mapWorkoutDoc(matched);
     const routinesSnap = await getDocs(
       query(
         collection(db, "workouts", matched.id, "routines"),
@@ -200,7 +227,7 @@ export async function getActiveWorkoutByLocation(
   if (snap.empty) return null;
 
   const workoutDoc = snap.docs[0];
-  const workout = { id: workoutDoc.id, ...workoutDoc.data() } as Workout;
+  const workout = mapWorkoutDoc(workoutDoc);
 
   const routinesSnap = await getDocs(
     query(
@@ -213,6 +240,18 @@ export async function getActiveWorkoutByLocation(
   );
 
   return { ...workout, routines };
+}
+
+/** Lista os programas do usuário do mais recente para o mais antigo. */
+export async function getWorkoutPrograms(userId: string): Promise<Workout[]> {
+  const db = getFirebaseDb();
+  const snap = await getDocs(
+    query(collection(db, "workouts"), where("user_id", "==", userId))
+  );
+
+  return snap.docs
+    .map(mapWorkoutDoc)
+    .sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
 }
 
 // Sobrescreve o array completo de exercises de uma routine — usado pelo modo edição

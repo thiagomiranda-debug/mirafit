@@ -4,9 +4,10 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCachedWorkoutLogs } from "@/lib/workoutLogsCache";
-import { getExercisesByIds } from "@/lib/workouts";
-import { WorkoutLog } from "@/types";
+import { getExercisesByIds, getWorkoutPrograms } from "@/lib/workouts";
+import { Workout, WorkoutLog } from "@/types";
 import { translateExerciseName } from "@/lib/exerciseNames";
+import { getProgramDisplayName } from "@/lib/workoutPrograms";
 import ExerciseChart, { ChartDataPoint } from "@/components/ExerciseChart";
 import MuscleAnalytics from "@/components/MuscleAnalytics";
 import BottomNav from "@/components/BottomNav";
@@ -15,6 +16,13 @@ import EmptyState from "@/components/EmptyState";
 import { haptic } from "@/lib/haptics";
 
 type Tab = "treinos" | "evolucao" | "analise";
+
+interface ProgramGroup {
+  key: string;
+  workout?: Workout;
+  logs: WorkoutLog[];
+  legacy: boolean;
+}
 
 function getTotalVolume(log: WorkoutLog): number {
   return log.performance.reduce((acc, p) => {
@@ -50,6 +58,7 @@ export default function HistoryPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [logs, setLogs] = useState<WorkoutLog[]>([]);
+  const [programs, setPrograms] = useState<Workout[]>([]);
   const [exerciseNames, setExerciseNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -58,8 +67,12 @@ export default function HistoryPage() {
   const loadLogs = useCallback(async () => {
     if (!user) return;
     try {
-      const data = await getCachedWorkoutLogs(user.uid, 30);
+      const [data, workoutPrograms] = await Promise.all([
+        getCachedWorkoutLogs(user.uid, 120),
+        getWorkoutPrograms(user.uid),
+      ]);
       setLogs(data);
+      setPrograms(workoutPrograms);
 
       const allIds = new Set<string>();
       data.forEach((log) => log.performance.forEach((p) => allIds.add(p.exercise_id)));
@@ -106,6 +119,37 @@ export default function HistoryPage() {
     return result;
   }, [logs]);
 
+  const programGroups = useMemo<ProgramGroup[]>(() => {
+    const programsById = new Map(
+      programs.filter((program) => program.id).map((program) => [program.id!, program])
+    );
+    const grouped = new Map<string, WorkoutLog[]>();
+
+    for (const log of logs) {
+      const key = log.workout_id || "legacy";
+      const current = grouped.get(key);
+      if (current) current.push(log);
+      else grouped.set(key, [log]);
+    }
+
+    return [...grouped.entries()]
+      .map(([key, groupLogs]) => ({
+        key,
+        workout: key === "legacy" ? undefined : programsById.get(key),
+        logs: groupLogs,
+        legacy: key === "legacy",
+      }))
+      .sort((a, b) => {
+        if (a.legacy !== b.legacy) return a.legacy ? 1 : -1;
+        if (a.workout?.is_active !== b.workout?.is_active) {
+          return a.workout?.is_active ? -1 : 1;
+        }
+        const aDate = a.logs[0]?.date?.getTime() ?? 0;
+        const bDate = b.logs[0]?.date?.getTime() ?? 0;
+        return bDate - aDate;
+      });
+  }, [logs, programs]);
+
   const evolutionExercises = useMemo(
     () =>
       Object.entries(evolutionMap).sort(
@@ -145,7 +189,7 @@ export default function HistoryPage() {
         >
           HISTÓRICO
         </h1>
-        <p className="text-xs text-[var(--text-dim)]">Últimos 30 treinos registrados</p>
+        <p className="text-xs text-[var(--text-dim)]">Sessões organizadas por programa de treino</p>
       </header>
 
       {/* Tabs */}
@@ -198,8 +242,13 @@ export default function HistoryPage() {
               />
             ) : (
               <div className="stagger space-y-3">
-                {logs.map((log) => (
-                  <LogCard key={log.id} log={log} exerciseNames={exerciseNames} />
+                {programGroups.map((group, index) => (
+                  <ProgramHistoryGroup
+                    key={group.key}
+                    group={group}
+                    exerciseNames={exerciseNames}
+                    defaultOpen={group.workout?.is_active || index === 0}
+                  />
                 ))}
               </div>
             )}
@@ -248,6 +297,124 @@ export default function HistoryPage() {
 }
 
 // ─── LogCard ─────────────────────────────────────────────────────────────────
+
+function ProgramHistoryGroup({
+  group,
+  exerciseNames,
+  defaultOpen,
+}: {
+  group: ProgramGroup;
+  exerciseNames: Record<string, string>;
+  defaultOpen: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const newestLog = group.logs[0];
+  const oldestLog = group.logs[group.logs.length - 1];
+  const title = group.legacy
+    ? "Treinos anteriores"
+    : group.workout
+      ? getProgramDisplayName(group.workout)
+      : newestLog.workout_name_snapshot || "Programa arquivado";
+  const locationType = group.workout?.location_type || newestLog.location_type;
+  const totalVolume = group.logs.reduce((sum, log) => sum + getTotalVolume(log), 0);
+  const programStart = group.workout?.created_at.getTime()
+    ? group.workout.created_at
+    : oldestLog.date;
+  const programEnd = group.workout?.ended_at?.getTime()
+    ? group.workout.ended_at
+    : newestLog.date;
+  const startDate = programStart.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "short",
+    year: "2-digit",
+  });
+  const endDate = group.workout?.is_active
+    ? "atual"
+    : programEnd.toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "short",
+        year: "2-digit",
+      });
+  const sessionLabel = group.logs.length === 1 ? "sessão" : "sessões";
+
+  return (
+    <section
+      className="animate-fade-in overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]"
+      aria-label={title}
+    >
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => {
+          haptic("light");
+          setOpen((value) => !value);
+        }}
+        className="flex w-full items-start justify-between gap-3 px-4 py-4 text-left"
+      >
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--red-600)]/12 text-[var(--red-500)]">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.9}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a3 3 0 006 0M9 12h6m-6 4h6" />
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="truncate text-sm font-bold text-[var(--foreground)]">
+                {title}
+              </h2>
+              {group.workout?.is_active ? (
+                <span className="rounded-full bg-[var(--red-600)]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--red-500)]">
+                  Ativo
+                </span>
+              ) : (
+                <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--text-dim)]">
+                  {group.legacy ? "Sem programa" : "Finalizado"}
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-[var(--text-dim)]">
+              {group.logs.length} {sessionLabel} · {startDate} — {endDate}
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-semibold text-[var(--text-muted)]">
+              {locationType && (
+                <span className="rounded-full bg-[var(--surface-2)] px-2 py-1">
+                  {locationType === "quartel" ? "Quartel" : "Academia"}
+                </span>
+              )}
+              {totalVolume > 0 && (
+                <span className="rounded-full bg-[var(--amber-500)]/10 px-2 py-1 text-[var(--amber-500)]">
+                  {totalVolume.toLocaleString("pt-BR")} kg movimentados
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <svg
+          className={`mt-1 h-5 w-5 shrink-0 text-[var(--text-dim)] transition-transform ${open ? "rotate-180" : ""}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="space-y-2 border-t border-[var(--border)] bg-[var(--background)]/35 p-2">
+          {group.legacy && (
+            <p className="px-2 py-1 text-xs leading-relaxed text-[var(--text-dim)]">
+              Sessões registradas antes da organização por programas.
+            </p>
+          )}
+          {group.logs.map((log) => (
+            <LogCard key={log.id} log={log} exerciseNames={exerciseNames} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
 
 function LogCard({
   log,

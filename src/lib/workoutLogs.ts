@@ -15,17 +15,34 @@ import { WorkoutLog, ExercisePerformance, SetPerformance, LocationType } from "@
 import { best1RMFromSets, epley1RM, totalVolume } from "@/lib/metrics";
 import { getCachedWorkoutLogs, invalidateWorkoutLogs } from "@/lib/workoutLogsCache";
 
-export async function saveWorkoutLog(
-  userId: string,
-  routineName: string,
-  performance: ExercisePerformance[],
-  notes?: string,
-  locationType?: LocationType
-): Promise<string> {
+interface SaveWorkoutLogInput {
+  userId: string;
+  workoutId: string;
+  routineId: string;
+  workoutName: string;
+  routineName: string;
+  performance: ExercisePerformance[];
+  notes?: string;
+  locationType?: LocationType;
+}
+
+export async function saveWorkoutLog({
+  userId,
+  workoutId,
+  routineId,
+  workoutName,
+  routineName,
+  performance,
+  notes,
+  locationType,
+}: SaveWorkoutLogInput): Promise<string> {
   const db = getFirebaseDb();
   const payload: Record<string, unknown> = {
     user_id: userId,
     date: serverTimestamp(),
+    workout_id: workoutId,
+    routine_id: routineId,
+    workout_name_snapshot: workoutName,
     routine_name: routineName,
     performance,
   };
@@ -71,6 +88,9 @@ export async function getWorkoutLogs(
       routine_name: data.routine_name,
       performance: data.performance,
     };
+    if (data.workout_id) log.workout_id = data.workout_id;
+    if (data.routine_id) log.routine_id = data.routine_id;
+    if (data.workout_name_snapshot) log.workout_name_snapshot = data.workout_name_snapshot;
     if (data.notes) log.notes = data.notes;
     if (data.location_type) log.location_type = data.location_type;
     return log;

@@ -26,6 +26,7 @@ import Avatar from "@/components/Avatar";
 import EmptyState from "@/components/EmptyState";
 import { useCountUp, useGreeting } from "@/lib/hooks";
 import { haptic } from "@/lib/haptics";
+import { getProgramDisplayName } from "@/lib/workoutPrograms";
 
 /** Normaliza Firestore Timestamp (objeto com seconds) ou Date para Date. */
 function toDate(value: unknown): Date | null {
@@ -42,11 +43,32 @@ function toDate(value: unknown): Date | null {
   return null;
 }
 
-/** Retorna a próxima rotina no ciclo com base na última registrada no histórico. */
-function nextRoutineFromHistory(routines: Routine[], logs: WorkoutLog[]): Routine | undefined {
+/** Retorna a próxima rotina considerando apenas sessões do programa ativo. */
+function nextRoutineFromHistory(
+  routines: Routine[],
+  logs: WorkoutLog[],
+  workout: Workout
+): Routine | undefined {
   if (!routines?.length) return undefined;
   const names = routines.map((r) => r.name);
-  const lastDone = logs.find((l) => names.includes(l.routine_name));
+  const linkedLogs = workout.id
+    ? logs.filter((log) => log.workout_id === workout.id)
+    : [];
+
+  // Compatibilidade: sessões do programa atual salvas antes do vínculo por ID.
+  const createdAt = toDate(workout.created_at);
+  const legacyLogs = linkedLogs.length === 0 && createdAt
+    ? logs.filter((log) => {
+        if (log.workout_id) return false;
+        const logDate = log.date instanceof Date ? log.date : new Date(log.date);
+        const sameLocation = !log.location_type || log.location_type === workout.location_type;
+        return sameLocation && logDate >= createdAt;
+      })
+    : [];
+
+  const lastDone = [...linkedLogs, ...legacyLogs].find((l) =>
+    names.includes(l.routine_name)
+  );
   if (!lastDone) return routines[0];
   const idx = names.indexOf(lastDone.routine_name);
   return routines[(idx + 1) % routines.length];
@@ -127,7 +149,7 @@ export default function Home() {
       if (perm === "default" && !alreadyShownToday(user.uid)) {
         setShowNotifBanner(true);
       } else if (perm === "granted" && !data.trainedToday && w && !alreadyShownToday(user.uid)) {
-        const nextRoutine = nextRoutineFromHistory(w.routines ?? [], logs);
+        const nextRoutine = nextRoutineFromHistory(w.routines ?? [], logs, w);
         showTrainingReminder(nextRoutine?.name || "seu treino", user.uid);
       }
     });
@@ -192,7 +214,11 @@ export default function Home() {
     setShowNotifBanner(false);
     dismissReminderBanner(user.uid);
     if (granted && workout && streak && !streak.trainedToday) {
-      const nextRoutine = nextRoutineFromHistory(workout.routines ?? [], recentLogs);
+      const nextRoutine = nextRoutineFromHistory(
+        workout.routines ?? [],
+        recentLogs,
+        workout
+      );
       showTrainingReminder(nextRoutine?.name || "seu treino", user.uid);
     }
   }
@@ -492,13 +518,18 @@ export default function Home() {
         {/* ── Active workout ── */}
         {workout ? (
           <div className="animate-fade-in-up">
-            <div className="mb-3 flex items-center justify-between">
-              <h2
-                className="text-base text-[var(--foreground)]"
-                style={{ fontFamily: "var(--font-bebas)", letterSpacing: "0.12em" }}
-              >
-                TREINO ATIVO
-              </h2>
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2
+                  className="text-base text-[var(--foreground)]"
+                  style={{ fontFamily: "var(--font-bebas)", letterSpacing: "0.12em" }}
+                >
+                  PROGRAMA ATIVO
+                </h2>
+                <p className="truncate text-xs font-semibold text-[var(--text-muted)]">
+                  {getProgramDisplayName(workout)}
+                </p>
+              </div>
               <span className="flex items-center gap-1.5 rounded-full bg-[var(--red-600)]/15 px-3 py-1 text-xs font-bold text-[var(--red-500)]">
                 <span className="h-1.5 w-1.5 rounded-full bg-[var(--red-500)] animate-pulse" />
                 Ativo

@@ -58,13 +58,20 @@ export interface Routine {
 }
 
 export type LocationType = 'gym' | 'quartel';
+export type WorkoutSource = 'generated' | 'manual';
 
 export interface Workout {
   id?: string;
   user_id: string;
   workout_type: string;
+  /** Nome amigável exibido como programa no dashboard e no histórico. */
+  display_name?: string;
+  /** Origem do programa: gerado pelo app ou montado/importado manualmente. */
+  source?: WorkoutSource;
   is_active: boolean;
   created_at: Date;
+  /** Data em que o programa deixou de ser ativo. */
+  ended_at?: Date | null;
   location_type?: LocationType;
   routines?: Routine[];
   /** ID da variante curada usada nesta geração (ex: "abcd_sinergista"). Undefined em workouts pré-periodização. */
@@ -90,6 +97,12 @@ export interface WorkoutLog {
   id?: string;
   user_id: string;
   date: Date;
+  /** Programa (documento em workouts) usado nesta sessão. Ausente em logs legados. */
+  workout_id?: string;
+  /** Rotina (subdocumento do workout) executada nesta sessão. */
+  routine_id?: string;
+  /** Snapshot para o histórico continuar legível mesmo se o programa mudar. */
+  workout_name_snapshot?: string;
   routine_name: string;
   performance: ExercisePerformance[];
   notes?: string;

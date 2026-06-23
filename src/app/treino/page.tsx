@@ -102,6 +102,7 @@ function TreinoContent() {
   const [swapModal, setSwapModal] = useState<{ exIdx: number; exerciseId: string; muscle: string } | null>(null);
   const [notes, setNotes] = useState("");
   const [locationType, setLocationType] = useState<LocationType>("gym");
+  const [workoutName, setWorkoutName] = useState("Programa de treino");
 
   const [editMode, setEditMode] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -142,6 +143,11 @@ function TreinoContent() {
       }
       const workoutLocType = workoutSnap.data().location_type as LocationType | undefined;
       if (workoutLocType) setLocationType(workoutLocType);
+      setWorkoutName(
+        (workoutSnap.data().display_name as string | undefined) ||
+          (workoutSnap.data().workout_type as string | undefined) ||
+          "Programa de treino"
+      );
       const routineSnap = await getDoc(
         doc(db, "workouts", workoutId, "routines", routineId)
       );
@@ -444,7 +450,7 @@ function TreinoContent() {
   }
 
   async function handleFinish() {
-    if (!user || !routine) return;
+    if (!user || !routine || !workoutId || !routineId) return;
     const perf: ExercisePerformance[] = inputs
       .filter((inp) => inp.sets.some((s) => s.done))
       .map((inp) => ({
@@ -463,7 +469,16 @@ function TreinoContent() {
     setSaving(true);
     setError("");
     try {
-      await saveWorkoutLog(user.uid, routine.name, perf, notes, locationType);
+      await saveWorkoutLog({
+        userId: user.uid,
+        workoutId,
+        routineId,
+        workoutName,
+        routineName: routine.name,
+        performance: perf,
+        notes,
+        locationType,
+      });
       finalElapsedRef.current = elapsed;
       setSaved(true);
     } catch {

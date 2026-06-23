@@ -74,16 +74,22 @@ export async function POST(req: NextRequest) {
       .get();
 
     const batch = db.batch();
-    activeSnap.docs.forEach((d) => batch.update(d.ref, { is_active: false }));
+    const createdAt = new Date();
+    activeSnap.docs.forEach((d) =>
+      batch.update(d.ref, { is_active: false, ended_at: createdAt })
+    );
 
     // 5. Create new workout + routines
     const workoutRef = db.collection("workouts").doc();
     batch.set(workoutRef, {
       user_id: userId,
       workout_type: planName,
+      display_name: planName,
+      source: "manual",
       is_active: true,
       location_type: locationType,
-      created_at: new Date(),
+      created_at: createdAt,
+      ended_at: null,
     });
 
     routines.forEach((routine, idx) => {
@@ -102,7 +108,7 @@ export async function POST(req: NextRequest) {
 
     await batch.commit();
 
-    return NextResponse.json({ workoutId: workoutRef.id });
+    return NextResponse.json({ workoutId: workoutRef.id, display_name: planName });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[save-manual-workout]", message, err);
