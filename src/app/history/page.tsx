@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCachedWorkoutLogs } from "@/lib/workoutLogsCache";
 import { getExercisesByIds, getWorkoutPrograms } from "@/lib/workouts";
@@ -402,6 +403,18 @@ function ProgramHistoryGroup({
 
       {open && (
         <div className="space-y-2 border-t border-[var(--border)] bg-[var(--background)]/35 p-2">
+          {group.workout?.id && (
+            <Link
+              href={`/relatorio?w=${encodeURIComponent(group.workout.id)}`}
+              onClick={() => haptic("light")}
+              className="flex items-center justify-between rounded-xl border border-[var(--red-500)]/25 bg-[var(--red-600)]/10 px-3 py-3 text-xs font-bold text-[var(--red-500)] transition-colors hover:bg-[var(--red-600)]/15"
+            >
+              Ver relatório detalhado
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          )}
           {group.legacy && (
             <p className="px-2 py-1 text-xs leading-relaxed text-[var(--text-dim)]">
               Sessões registradas antes da organização por programas.

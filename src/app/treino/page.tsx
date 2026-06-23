@@ -476,6 +476,7 @@ function TreinoContent() {
         workoutName,
         routineName: routine.name,
         performance: perf,
+        durationSec: elapsed,
         notes,
         locationType,
       });

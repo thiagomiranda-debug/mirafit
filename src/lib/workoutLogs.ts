@@ -22,6 +22,7 @@ interface SaveWorkoutLogInput {
   workoutName: string;
   routineName: string;
   performance: ExercisePerformance[];
+  durationSec?: number;
   notes?: string;
   locationType?: LocationType;
 }
@@ -33,6 +34,7 @@ export async function saveWorkoutLog({
   workoutName,
   routineName,
   performance,
+  durationSec,
   notes,
   locationType,
 }: SaveWorkoutLogInput): Promise<string> {
@@ -46,6 +48,7 @@ export async function saveWorkoutLog({
     routine_name: routineName,
     performance,
   };
+  if (durationSec && durationSec > 0) payload.duration_sec = Math.round(durationSec);
   if (notes && notes.trim()) payload.notes = notes.trim();
   if (locationType) payload.location_type = locationType;
   const docRef = await addDoc(collection(db, "workout_history"), payload);
@@ -79,22 +82,54 @@ export async function getWorkoutLogs(
       limit(maxResults)
     )
   );
-  return snap.docs.map((d) => {
-    const data = d.data();
-    const log: WorkoutLog = {
-      id: d.id,
-      user_id: data.user_id,
-      date: data.date instanceof Timestamp ? data.date.toDate() : (data.date ? new Date(data.date) : new Date()),
-      routine_name: data.routine_name,
-      performance: data.performance,
-    };
-    if (data.workout_id) log.workout_id = data.workout_id;
-    if (data.routine_id) log.routine_id = data.routine_id;
-    if (data.workout_name_snapshot) log.workout_name_snapshot = data.workout_name_snapshot;
-    if (data.notes) log.notes = data.notes;
-    if (data.location_type) log.location_type = data.location_type;
-    return log;
-  });
+  return snap.docs.map(mapWorkoutLogDoc);
+}
+
+/** Busca todas as sessões vinculadas a um programa específico. */
+export async function getWorkoutLogsByWorkout(
+  userId: string,
+  workoutId: string,
+  maxResults: number = 300
+): Promise<WorkoutLog[]> {
+  const db = getFirebaseDb();
+  const snap = await getDocs(
+    query(
+      collection(db, "workout_history"),
+      where("user_id", "==", userId),
+      where("workout_id", "==", workoutId),
+      orderBy("date", "desc"),
+      limit(maxResults)
+    )
+  );
+  return snap.docs.map(mapWorkoutLogDoc);
+}
+
+function mapWorkoutLogDoc(logDoc: {
+  id: string;
+  data: () => Record<string, unknown>;
+}): WorkoutLog {
+  const data = logDoc.data();
+  const rawDate = data.date;
+  const log: WorkoutLog = {
+    id: logDoc.id,
+    user_id: data.user_id as string,
+    date: rawDate instanceof Timestamp
+      ? rawDate.toDate()
+      : rawDate
+        ? new Date(rawDate as string | number | Date)
+        : new Date(),
+    routine_name: data.routine_name as string,
+    performance: data.performance as ExercisePerformance[],
+  };
+  if (data.workout_id) log.workout_id = data.workout_id as string;
+  if (data.routine_id) log.routine_id = data.routine_id as string;
+  if (data.workout_name_snapshot) {
+    log.workout_name_snapshot = data.workout_name_snapshot as string;
+  }
+  if (typeof data.duration_sec === "number") log.duration_sec = data.duration_sec;
+  if (data.notes) log.notes = data.notes as string;
+  if (data.location_type) log.location_type = data.location_type as LocationType;
+  return log;
 }
 
 /**

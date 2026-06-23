@@ -105,6 +105,8 @@ export interface WorkoutLog {
   workout_name_snapshot?: string;
   routine_name: string;
   performance: ExercisePerformance[];
+  /** Duração da sessão em segundos. Ausente nos registros anteriores ao cronômetro persistido. */
+  duration_sec?: number;
   notes?: string;
   location_type?: LocationType;
 }

@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   query,
   where,
@@ -252,6 +253,29 @@ export async function getWorkoutPrograms(userId: string): Promise<Workout[]> {
   return snap.docs
     .map(mapWorkoutDoc)
     .sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
+}
+
+/** Busca um programa específico e suas rotinas, validando o proprietário. */
+export async function getWorkoutById(
+  userId: string,
+  workoutId: string
+): Promise<(Workout & { routines: Routine[] }) | null> {
+  const db = getFirebaseDb();
+  const workoutSnap = await getDoc(doc(db, "workouts", workoutId));
+  if (!workoutSnap.exists() || workoutSnap.data().user_id !== userId) return null;
+
+  const workout = mapWorkoutDoc(workoutSnap);
+  const routinesSnap = await getDocs(
+    query(
+      collection(db, "workouts", workoutId, "routines"),
+      orderBy("order", "asc")
+    )
+  );
+  const routines = routinesSnap.docs.map(
+    (routineDoc) => ({ id: routineDoc.id, ...routineDoc.data() } as Routine)
+  );
+
+  return { ...workout, routines };
 }
 
 // Sobrescreve o array completo de exercises de uma routine — usado pelo modo edição
