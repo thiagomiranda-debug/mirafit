@@ -7,8 +7,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getUserProfile } from "@/lib/userProfile";
 import { getActiveWorkoutByLocation } from "@/lib/workouts";
 import { getCachedWorkoutLogs } from "@/lib/workoutLogsCache";
-import { getWorkoutCount } from "@/lib/workoutLogs";
-import { calculateStreak, StreakData } from "@/lib/streaks";
+import {
+  calculateProgramProgress,
+  getLogsForWorkout,
+  ProgramProgressData,
+} from "@/lib/streaks";
 import {
   notificationPermission,
   requestNotificationPermission,
@@ -51,22 +54,7 @@ function nextRoutineFromHistory(
 ): Routine | undefined {
   if (!routines?.length) return undefined;
   const names = routines.map((r) => r.name);
-  const linkedLogs = workout.id
-    ? logs.filter((log) => log.workout_id === workout.id)
-    : [];
-
-  // Compatibilidade: sessões do programa atual salvas antes do vínculo por ID.
-  const createdAt = toDate(workout.created_at);
-  const legacyLogs = linkedLogs.length === 0 && createdAt
-    ? logs.filter((log) => {
-        if (log.workout_id) return false;
-        const logDate = log.date instanceof Date ? log.date : new Date(log.date);
-        const sameLocation = !log.location_type || log.location_type === workout.location_type;
-        return sameLocation && logDate >= createdAt;
-      })
-    : [];
-
-  const lastDone = [...linkedLogs, ...legacyLogs].find((l) =>
+  const lastDone = getLogsForWorkout(logs, workout).find((l) =>
     names.includes(l.routine_name)
   );
   if (!lastDone) return routines[0];
@@ -87,7 +75,8 @@ export default function Home() {
   const [pageLoading, setPageLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState("");
-  const [streak, setStreak] = useState<StreakData | null>(null);
+  const [programProgress, setProgramProgress] =
+    useState<ProgramProgressData | null>(null);
   const [showNotifBanner, setShowNotifBanner] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showCycleProtection, setShowCycleProtection] = useState(false);
@@ -116,6 +105,7 @@ export default function Home() {
 
   const loadData = useCallback(async () => {
     if (!user) return;
+    setProgramProgress(null);
     const [p, w] = await Promise.all([
       getUserProfile(user.uid),
       getActiveWorkoutByLocation(user.uid, locationType),
@@ -131,24 +121,22 @@ export default function Home() {
     setPageLoading(false);
 
     getCachedWorkoutLogs(user.uid, 120).then((logs) => {
-      const data = calculateStreak(logs);
-      setStreak(data);
+      const data = w
+        ? calculateProgramProgress(logs, w, p.days_per_week)
+        : null;
+      setProgramProgress(data);
       setRecentLogs(logs);
-
-      // Total real de treinos via contagem server-side. logs.length é limitado
-      // pela janela carregada (≤120), o que subcontava o KPI de usuários ativos.
-      getWorkoutCount(user.uid)
-        .then((count) =>
-          setStreak((prev) =>
-            prev ? { ...prev, totalWorkouts: count } : { ...data, totalWorkouts: count }
-          )
-        )
-        .catch(() => {});
 
       const perm = notificationPermission();
       if (perm === "default" && !alreadyShownToday(user.uid)) {
         setShowNotifBanner(true);
-      } else if (perm === "granted" && !data.trainedToday && w && !alreadyShownToday(user.uid)) {
+      } else if (
+        perm === "granted" &&
+        data &&
+        !data.trainedToday &&
+        w &&
+        !alreadyShownToday(user.uid)
+      ) {
         const nextRoutine = nextRoutineFromHistory(w.routines ?? [], logs, w);
         showTrainingReminder(nextRoutine?.name || "seu treino", user.uid);
       }
@@ -213,7 +201,12 @@ export default function Home() {
     const granted = await requestNotificationPermission();
     setShowNotifBanner(false);
     dismissReminderBanner(user.uid);
-    if (granted && workout && streak && !streak.trainedToday) {
+    if (
+      granted &&
+      workout &&
+      programProgress &&
+      !programProgress.trainedToday
+    ) {
       const nextRoutine = nextRoutineFromHistory(
         workout.routines ?? [],
         recentLogs,
@@ -347,11 +340,11 @@ export default function Home() {
 
       <main className="flex flex-1 flex-col gap-4 px-4">
         {/* ── KPI Cards ── */}
-        {streak && (
+        {programProgress && (
           <div className="stagger grid grid-cols-3 gap-3">
             <KPICard
-              value={streak.weekStreak}
-              label={streak.weekStreak === 1 ? "Semana" : "Semanas"}
+              value={programProgress.weeksOnGoal}
+              label="Semanas em meta"
               iconBg="linear-gradient(135deg, rgba(220,38,38,0.25), rgba(220,38,38,0.10))"
               iconColor="#EF4444"
               icon={
@@ -361,8 +354,8 @@ export default function Home() {
               }
             />
             <KPICard
-              value={streak.totalWorkouts}
-              label="Treinos"
+              value={programProgress.programWorkouts}
+              label="No programa"
               iconBg="linear-gradient(135deg, rgba(245,158,11,0.25), rgba(245,158,11,0.10))"
               iconColor="#F59E0B"
               icon={
@@ -372,13 +365,16 @@ export default function Home() {
               }
             />
             <KPICard
-              value={streak.thisWeekDays.filter(Boolean).length}
+              value={Math.min(
+                programProgress.thisWeekWorkouts,
+                profile?.days_per_week || 0
+              )}
               fraction={profile?.days_per_week || 0}
-              label="Esta semana"
+              label="Meta semanal"
               iconBg="linear-gradient(135deg, rgba(34,197,94,0.25), rgba(34,197,94,0.10))"
               iconColor="#22C55E"
               icon={
-                streak.trainedToday ? (
+                programProgress.trainedToday ? (
                   <svg className="h-4 w-4 text-[var(--success)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
@@ -393,7 +389,7 @@ export default function Home() {
         )}
 
         {/* ── Week dots ── */}
-        {streak && (
+        {programProgress && (
           <div
             className="animate-fade-in flex items-center justify-between rounded-2xl px-5 py-3.5"
             style={{
@@ -408,12 +404,12 @@ export default function Home() {
                 </span>
                 <div
                   className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
-                    streak.thisWeekDays[i]
+                    programProgress.thisWeekDays[i]
                       ? "text-white"
                       : "text-[var(--text-dim)]"
                   }`}
                   style={
-                    streak.thisWeekDays[i]
+                    programProgress.thisWeekDays[i]
                       ? {
                           background:
                             "linear-gradient(135deg, var(--red-500), var(--red-600))",
@@ -426,7 +422,7 @@ export default function Home() {
                         }
                   }
                 >
-                  {streak.thisWeekDays[i] ? (
+                  {programProgress.thisWeekDays[i] ? (
                     <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>

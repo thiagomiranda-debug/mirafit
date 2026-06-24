@@ -58,7 +58,7 @@ export async function saveWorkoutLog({
 
 /**
  * Conta o total de sessões de treino do usuário via agregação server-side
- * (não baixa os documentos). Usado no KPI "Treinos" da home, que não pode
+ * (não baixa os documentos). Usado no resumo do Histórico, que não pode
  * depender de logs.length — limitado pela janela carregada em memória (≤120).
  */
 export async function getWorkoutCount(userId: string): Promise<number> {
