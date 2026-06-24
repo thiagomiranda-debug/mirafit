@@ -515,6 +515,7 @@ function TreinoContent() {
         routineName={routine.name}
         inputs={inputs}
         elapsed={finalElapsedRef.current}
+        personalRecords={prMap}
         onHome={() => router.push("/")}
       />
     );
@@ -961,15 +962,60 @@ function rrect(
 // ─── WorkoutComplete ──────────────────────────────────────────────────────────
 
 const MOTIVATIONAL_QUOTES = [
-  "CADA SÉRIE É UMA VITÓRIA",
-  "VOCÊ É MAIS FORTE DO QUE PENSA",
-  "MISSÃO CUMPRIDA. REPITA AMANHÃ.",
-  "O CORPO CONQUISTA O QUE A MENTE ORDENA",
-  "SEM SUOR, SEM GLÓRIA",
-  "A DOR DE HOJE É A FORÇA DE AMANHÃ",
+  "CONSISTÊNCIA CONSTRÓI RESULTADOS",
+  "HOJE VOCÊ ESCOLHEU EVOLUIR",
+  "MAIS UM TREINO, MAIS UM PASSO",
+  "A SUA DISCIPLINA APARECEU HOJE",
+  "FORÇA TAMBÉM É CONTINUAR",
+  "O RESULTADO COMEÇA NA REPETIÇÃO",
+  "VOCÊ FEZ O QUE PRECISAVA SER FEITO",
+  "SEU FUTURO FORTE AGRADECE",
+  "TREINO FEITO. CONFIANÇA RENOVADA.",
+  "A EVOLUÇÃO MORA NA CONSTÂNCIA",
+  "UM BOM DIA PARA FICAR MAIS FORTE",
   "VOCÊ GANHOU O DIA",
-  "DISCIPLINA BATE MOTIVAÇÃO TODOS OS DIAS",
+  "DISCIPLINA EM MOVIMENTO",
+  "O ESFORÇO DE HOJE FICA EM VOCÊ",
+  "A META ERA APARECER. VOCÊ FOI ALÉM.",
+  "FORÇA É UM HÁBITO",
+  "CADA REP CONTA UMA PARTE DA HISTÓRIA",
+  "FEITO É MELHOR QUE ADIADO",
+  "SEU RITMO. SUA EVOLUÇÃO.",
+  "A CONSTÂNCIA VENCE NO LONGO PRAZO",
+  "CORPO ATIVO, MENTE PRESENTE",
+  "MAIS FORTE DO QUE ONTEM",
+  "VOCÊ ENTREGOU O TREINO",
+  "A MELHOR SÉRIE É A QUE VOCÊ CONCLUI",
 ];
+
+const PERFECT_MESSAGES = [
+  "Treino completo. Você fechou todas as séries planejadas.",
+  "Planejado, executado, concluído. Excelente trabalho hoje.",
+  "100% do treino entregue. Essa consistência faz diferença.",
+  "Nenhuma série ficou para trás. Missão cumprida.",
+  "Execução completa e foco até o fim. Belo treino.",
+  "Você levou o plano até a última repetição.",
+];
+
+const STRONG_MESSAGES = [
+  "Treino sólido. Você cumpriu a maior parte do plano.",
+  "Bom volume de trabalho e uma sessão bem construída.",
+  "Você manteve o ritmo e acumulou mais um dia de evolução.",
+  "Sessão consistente. O progresso também nasce assim.",
+  "Um treino forte, com trabalho de verdade entregue.",
+];
+
+const KEEP_GOING_MESSAGES = [
+  "Cada série concluída soma. Hoje você avançou.",
+  "Você apareceu e fez o possível. Isso também é constância.",
+  "Treino registrado. Na próxima sessão, há espaço para avançar.",
+  "Nem todo treino precisa ser perfeito para gerar progresso.",
+  "O importante é continuar construindo, uma sessão por vez.",
+];
+
+function pickBySeed<T>(items: T[], seed: number): T {
+  return items[Math.abs(seed) % items.length];
+}
 
 function SortableEditCard({
   id,
@@ -1019,11 +1065,13 @@ function WorkoutComplete({
   routineName,
   inputs,
   elapsed,
+  personalRecords,
   onHome,
 }: {
   routineName: string;
   inputs: ExerciseInput[];
   elapsed: number;
+  personalRecords: Record<string, number>;
   onHome: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -1039,19 +1087,49 @@ function WorkoutComplete({
     const totalReps = doneSetsArr.reduce((a, s) => a + (parseInt(s.reps) || 0), 0);
     const exercisesCompleted = inputs.filter((inp) => inp.sets.some((s) => s.done)).length;
     const pct = totalPossible > 0 ? (totalDone / totalPossible) * 100 : 0;
-    return { totalDone, totalPossible, totalVolume, totalReps, exercisesCompleted, pct };
-  }, [inputs]);
+    const maxWeight = doneSetsArr.reduce((best, s) => Math.max(best, parseFloat(s.weight) || 0), 0);
+    const best1RM = doneSetsArr.reduce(
+      (best, s) => Math.max(best, epley1RM(parseFloat(s.weight) || 0, parseInt(s.reps) || 0)),
+      0
+    );
+    const newPrCount = inputs.reduce((count, input) => {
+      const sessionBest = input.sets
+        .filter((set) => set.done)
+        .reduce(
+          (best, set) => Math.max(best, epley1RM(parseFloat(set.weight) || 0, parseInt(set.reps) || 0)),
+          0
+        );
+      return count + (sessionBest > (personalRecords[input.exercise_id] ?? 0) ? 1 : 0);
+    }, 0);
+    return {
+      totalDone,
+      totalPossible,
+      totalVolume,
+      totalReps,
+      exercisesCompleted,
+      pct,
+      maxWeight,
+      best1RM,
+      newPrCount,
+    };
+  }, [inputs, personalRecords]);
 
-  const [quote] = useState(
-    () => MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]
+  const quote = useMemo(
+    () => pickBySeed(MOTIVATIONAL_QUOTES, routineName.length + stats.totalReps + stats.totalDone),
+    [routineName, stats.totalDone, stats.totalReps]
   );
 
   const evalMessage = useMemo(() => {
-    if (stats.pct === 100) return "Perfeito! Você dominou cada série hoje. 🔥";
-    if (stats.pct >= 80) return "Excelente! Treino sólido e consistente.";
-    if (stats.pct >= 60) return "Bom trabalho! Cada rep conta na sua evolução.";
-    return "Você apareceu — e isso já é metade da batalha.";
-  }, [stats.pct]);
+    const seed = stats.totalReps + stats.totalDone + routineName.length;
+    if (stats.newPrCount > 0) {
+      return stats.newPrCount === 1
+        ? "1 novo recorde pessoal. O treino de hoje elevou a régua."
+        : `${stats.newPrCount} novos recordes pessoais. O treino de hoje elevou a régua.`;
+    }
+    if (stats.pct === 100) return pickBySeed(PERFECT_MESSAGES, seed);
+    if (stats.pct >= 70) return pickBySeed(STRONG_MESSAGES, seed);
+    return pickBySeed(KEEP_GOING_MESSAGES, seed);
+  }, [routineName.length, stats.newPrCount, stats.pct, stats.totalDone, stats.totalReps]);
 
   const volumeStr = useMemo(() => {
     if (stats.totalVolume >= 1000)
@@ -1184,25 +1262,55 @@ function WorkoutComplete({
       ctx.lineTo(W - M - 60, 218);
       ctx.stroke();
 
-      // ── Trophy emoji ──
-      ctx.font = "190px serif";
-      ctx.fillText("🏆", W / 2, 456);
+      // ── Completion seal ──
+      const sealX = W / 2;
+      const sealY = 410;
+      const sealGlow = ctx.createRadialGradient(sealX, sealY, 10, sealX, sealY, 205);
+      sealGlow.addColorStop(0, "rgba(245,158,11,0.2)");
+      sealGlow.addColorStop(1, "rgba(245,158,11,0)");
+      ctx.fillStyle = sealGlow;
+      ctx.fillRect(sealX - 220, sealY - 220, 440, 440);
+
+      ctx.lineWidth = 12;
+      ctx.strokeStyle = "rgba(239,68,68,0.85)";
+      ctx.beginPath();
+      ctx.arc(sealX, sealY, 142, -Math.PI * 0.86, Math.PI * 0.35);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(sealX, sealY, 142, Math.PI * 0.53, Math.PI * 0.88);
+      ctx.stroke();
+
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = "#f59e0b";
+      ctx.beginPath();
+      ctx.arc(sealX, sealY, 104, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 20;
+      ctx.strokeStyle = "#f59e0b";
+      ctx.beginPath();
+      ctx.moveTo(sealX - 50, sealY + 2);
+      ctx.lineTo(sealX - 12, sealY + 42);
+      ctx.lineTo(sealX + 64, sealY - 46);
+      ctx.stroke();
+      ctx.lineCap = "butt";
 
       // ── Title ──
-      ctx.letterSpacing = "6px";
-      ctx.font = `bold 174px "Bebas Neue", sans-serif`;
+      ctx.letterSpacing = "5px";
+      ctx.font = `bold 132px "Bebas Neue", sans-serif`;
       ctx.fillStyle = "#f5f5f7";
-      ctx.fillText("TREINO", W / 2, 638);
-      ctx.fillText("CONCLUÍDO!", W / 2, 806);
+      ctx.fillText("TREINO CONCLUÍDO", W / 2, 660);
       ctx.letterSpacing = "0px";
 
       // ── Quote ──
       ctx.letterSpacing = "3px";
-      ctx.font = `bold 37px "Outfit", sans-serif`;
+      ctx.font = `bold 34px "Outfit", sans-serif`;
       ctx.fillStyle = "#f59e0b";
       let q = quote.toUpperCase();
       while (ctx.measureText(q).width > CW - 20 && q.length > 8) q = q.slice(0, -1);
-      ctx.fillText(q, W / 2, 898);
+      ctx.fillText(q, W / 2, 730);
       ctx.letterSpacing = "0px";
 
       // ── Routine name ──
@@ -1210,38 +1318,41 @@ function WorkoutComplete({
       ctx.fillStyle = "rgba(255,255,255,0.33)";
       let rn = routineName;
       while (ctx.measureText(rn).width > CW && rn.length > 5) rn = rn.slice(0, -1) + "…";
-      ctx.fillText(rn, W / 2, 960);
+      ctx.fillText(rn, W / 2, 790);
 
       // ── Eval message card ──
       ctx.fillStyle = "rgba(255,255,255,0.04)";
-      rrect(ctx, M, 1000, CW, 130, 28);
+      rrect(ctx, M, 830, CW, 126, 28);
       ctx.fill();
       ctx.strokeStyle = "rgba(255,255,255,0.08)";
       ctx.lineWidth = 1.5;
-      rrect(ctx, M, 1000, CW, 130, 28);
+      rrect(ctx, M, 830, CW, 126, 28);
       ctx.stroke();
 
-      ctx.font = `34px "Outfit", sans-serif`;
+      ctx.font = `31px "Outfit", sans-serif`;
       ctx.fillStyle = "rgba(255,255,255,0.62)";
-      ctx.fillText(evalMessage, W / 2, 1074);
+      const shareMessage = evalMessage.length > 76 ? `${evalMessage.slice(0, 73)}…` : evalMessage;
+      ctx.fillText(shareMessage, W / 2, 904);
 
-      // ── Stats 2×2 grid ──
+      // ── Stats 2×3 grid ──
       const cardW = (CW - 36) / 2;
-      const cardH = 216;
-      const gY = 1168;
+      const cardH = 184;
+      const gY = 998;
 
       const statsItems = [
-        { icon: "🔥", label: "SÉRIES",     value: `${stats.totalDone}/${stats.totalPossible}`, red: true  },
-        { icon: "⚡", label: stats.totalVolume > 0 ? "VOLUME" : "REPS TOTAIS", value: volumeStr, red: false },
-        { icon: "⏱", label: "DURAÇÃO",    value: formatElapsed(elapsed),          red: true  },
-        { icon: "💪", label: "EXERCÍCIOS", value: String(stats.exercisesCompleted), red: false },
+        { label: "SÉRIES", value: `${stats.totalDone}/${stats.totalPossible}`, red: true  },
+        { label: stats.totalVolume > 0 ? "VOLUME" : "REPS TOTAIS", value: volumeStr, red: false },
+        { label: "DURAÇÃO", value: formatElapsed(elapsed), red: true  },
+        { label: "REPETIÇÕES", value: String(stats.totalReps), red: false },
+        { label: "MAIOR CARGA", value: stats.maxWeight > 0 ? `${stats.maxWeight.toLocaleString("pt-BR")} kg` : "—", red: true },
+        { label: "MELHOR 1RM", value: stats.best1RM > 0 ? `${Math.round(stats.best1RM)} kg` : "—", red: false },
       ];
 
       statsItems.forEach((s, i) => {
         const col = i % 2;
         const row = Math.floor(i / 2);
         const cx = M + col * (cardW + 36);
-        const cy = gY + row * (cardH + 28);
+        const cy = gY + row * (cardH + 22);
         const accent = s.red ? "#ef4444" : "#f59e0b";
 
         ctx.fillStyle = s.red ? "rgba(220,38,38,0.09)" : "rgba(245,158,11,0.09)";
@@ -1256,17 +1367,14 @@ function WorkoutComplete({
         const mid = cx + cardW / 2;
         ctx.textAlign = "center";
 
-        ctx.font = "58px serif";
-        ctx.fillText(s.icon, mid, cy + 74);
-
-        ctx.font = `bold 94px "Bebas Neue", sans-serif`;
+        ctx.font = `bold 78px "Bebas Neue", sans-serif`;
         ctx.fillStyle = accent;
-        ctx.fillText(s.value, mid, cy + 164);
+        ctx.fillText(s.value, mid, cy + 112);
 
         ctx.letterSpacing = "2px";
         ctx.font = `bold 27px "Outfit", sans-serif`;
         ctx.fillStyle = "rgba(255,255,255,0.33)";
-        ctx.fillText(s.label, mid, cy + 205);
+        ctx.fillText(s.label, mid, cy + 154);
         ctx.letterSpacing = "0px";
       });
 
@@ -1341,161 +1449,120 @@ function WorkoutComplete({
     } catch { /* unavailable */ }
   }
 
-  return (
-    <div className="relative flex flex-1 flex-col items-center justify-between overflow-hidden bg-[var(--background)] px-5 py-10">
-      {/* ── Radial glow background ── */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div
-          className="animate-glow-breathe absolute left-1/2 top-[38%] h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--red-600)]/20 blur-[80px]"
-        />
-        <div
-          className="animate-glow-breathe absolute left-1/2 top-[38%] h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--amber-500)]/15 blur-[40px]"
-          style={{ animationDelay: "1.2s" }}
-        />
-      </div>
+  const pctRounded = Math.round(stats.pct);
+  const statItems = [
+    { label: "Séries", value: `${stats.totalDone}/${stats.totalPossible}`, tone: "red", delay: "420ms" },
+    { label: stats.totalVolume > 0 ? "Volume" : "Repetições", value: volumeStr, tone: "amber", delay: "500ms" },
+    { label: "Duração", value: formatElapsed(elapsed), tone: "red", delay: "580ms" },
+    { label: "Repetições", value: String(stats.totalReps), tone: "amber", delay: "660ms" },
+  ] as const;
 
-      {/* ── Confetti ── */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+  return (
+    <div className="relative min-h-svh flex-1 overflow-x-hidden overflow-y-auto bg-[var(--background)]">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div className="animate-glow-breathe absolute left-1/2 top-52 h-80 w-80 -translate-x-1/2 rounded-full bg-[var(--red-600)]/18 blur-[90px]" />
+        <div className="animate-glow-breathe absolute left-1/2 top-44 h-44 w-44 -translate-x-1/2 rounded-full bg-[var(--amber-500)]/12 blur-[45px]" style={{ animationDelay: "1s" }} />
         {particles.map((p) => (
-          <div
+          <span
             key={p.id}
             className="absolute top-0"
             style={{
               left: p.left,
               width: p.size,
-              height: p.isRect ? `calc(${p.size} * 0.5)` : p.size,
+              height: p.isRect ? `calc(${p.size} * 0.45)` : p.size,
               backgroundColor: p.color,
               borderRadius: p.isRect ? "1px" : "50%",
               animation: `confetti-fall ${p.duration} ${p.delay} ease-in both`,
+              opacity: 0.75,
             }}
           />
         ))}
       </div>
 
-      {/* ── Top: Logo ── */}
-      <div className="animate-fade-in z-10 flex items-center gap-2.5">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/icons/icon-192.png" alt="MiraFit" className="h-8 w-8 rounded-xl" />
-        <span
-          className="text-2xl tracking-[0.12em] text-[var(--foreground)]"
-          style={{ fontFamily: "var(--font-bebas)" }}
-        >
-          MIRAFIT
-        </span>
-      </div>
-
-      {/* ── Center: Trophy + Title + Quote + Stats ── */}
-      <div className="z-10 flex w-full flex-col items-center gap-5 text-center">
-        {/* Trophy */}
-        <div className="animate-scale-in animate-trophy-pulse relative flex h-24 w-24 items-center justify-center">
-          <div className="absolute inset-0 rounded-full bg-[var(--amber-500)]/15 blur-lg" />
-          <div className="relative flex h-[88px] w-[88px] items-center justify-center rounded-full border border-[var(--amber-500)]/25 bg-gradient-to-b from-[var(--amber-500)]/10 to-transparent">
-            <span style={{ fontSize: "2.8rem", lineHeight: 1 }}>🏆</span>
-          </div>
-        </div>
-
-        {/* Title */}
-        <div className="animate-fade-in-up" style={{ animationDelay: "180ms" }}>
-          <h1
-            className="leading-none text-[var(--foreground)]"
-            style={{
-              fontFamily: "var(--font-bebas)",
-              fontSize: "clamp(2.8rem, 12vw, 4.5rem)",
-              letterSpacing: "0.04em",
-            }}
-          >
-            TREINO<br />CONCLUÍDO!
-          </h1>
-          <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--amber-500)]">
-            {quote}
-          </p>
-          <p className="mt-1 text-xs text-[var(--text-dim)]">{routineName}</p>
-        </div>
-
-        {/* Eval message */}
-        <div
-          className="animate-fade-in-up w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-5 py-3"
-          style={{ animationDelay: "320ms" }}
-        >
-          <p className="text-sm text-[var(--text-muted)]">{evalMessage}</p>
-        </div>
-
-        {/* Stats 2×2 */}
-        <div className="grid w-full grid-cols-2 gap-3">
-          {[
-            {
-              icon: "🔥",
-              label: "SÉRIES",
-              value: `${stats.totalDone}/${stats.totalPossible}`,
-              accent: "red" as const,
-              delay: "400ms",
-            },
-            {
-              icon: "⚡",
-              label: stats.totalVolume > 0 ? "VOLUME" : "REPS TOTAIS",
-              value: volumeStr,
-              accent: "amber" as const,
-              delay: "480ms",
-            },
-            {
-              icon: "⏱",
-              label: "DURAÇÃO",
-              value: formatElapsed(elapsed),
-              accent: "red" as const,
-              delay: "560ms",
-            },
-            {
-              icon: "💪",
-              label: "EXERCÍCIOS",
-              value: String(stats.exercisesCompleted),
-              accent: "amber" as const,
-              delay: "640ms",
-            },
-          ].map((s) => (
-            <div
-              key={s.label}
-              className="animate-stat-pop rounded-2xl border p-4"
-              style={{
-                animationDelay: s.delay,
-                borderColor:
-                  s.accent === "red"
-                    ? "rgba(239,68,68,0.2)"
-                    : "rgba(245,158,11,0.2)",
-                background:
-                  s.accent === "red"
-                    ? "rgba(220,38,38,0.07)"
-                    : "rgba(245,158,11,0.07)",
-              }}
-            >
-              <p className="mb-1 text-base">{s.icon}</p>
-              <p
-                className="text-2xl leading-none"
-                style={{
-                  fontFamily: "var(--font-bebas)",
-                  color:
-                    s.accent === "red"
-                      ? "var(--red-500)"
-                      : "var(--amber-500)",
-                }}
-              >
-                {s.value}
-              </p>
-              <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.15em] text-[var(--text-dim)]">
-                {s.label}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Bottom: Buttons ── */}
-      <div
-        className="animate-fade-in-up z-10 w-full space-y-3"
-        style={{ animationDelay: "750ms" }}
+      <main
+        className="relative z-10 mx-auto flex w-full max-w-md flex-col items-center px-5 pb-6 pt-5 text-center"
+        style={{ paddingTop: "max(20px, env(safe-area-inset-top))", paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}
       >
+        <div className="animate-fade-in flex items-center gap-2.5 border-b border-[var(--border-subtle)] pb-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icons/icon-192.png" alt="" className="h-8 w-8 rounded-xl" />
+          <span className="text-2xl tracking-[0.14em] text-[var(--foreground)]" style={{ fontFamily: "var(--font-bebas)" }}>
+            MIRAFIT
+          </span>
+        </div>
+
+        <section className="mt-5 flex w-full flex-col items-center" aria-labelledby="completion-title">
+          <div className="completion-seal relative flex h-28 w-28 items-center justify-center" aria-label={`${pctRounded}% do treino concluído`}>
+            <div className="completion-orbit absolute inset-0 rounded-full border border-dashed border-[var(--red-500)]/30" />
+            <svg className="absolute inset-1 h-[104px] w-[104px] -rotate-90" viewBox="0 0 112 112" aria-hidden="true">
+              <circle cx="56" cy="56" r="47" fill="rgba(12,11,11,0.82)" stroke="rgba(255,255,255,0.06)" strokeWidth="5" />
+              <circle
+                className="completion-ring"
+                cx="56"
+                cy="56"
+                r="47"
+                fill="none"
+                pathLength="100"
+                stroke="var(--amber-500)"
+                strokeLinecap="round"
+                strokeWidth="5"
+                style={{ "--completion-offset": 100 - pctRounded } as React.CSSProperties}
+              />
+            </svg>
+            <svg className="completion-check relative h-12 w-12 text-[var(--amber-500)]" fill="none" viewBox="0 0 48 48" stroke="currentColor" strokeWidth="5" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 25l9 9 19-22" />
+            </svg>
+          </div>
+
+          <div className="animate-fade-in-up mt-4" style={{ animationDelay: "150ms" }}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[var(--amber-500)]">{quote}</p>
+            <h1 id="completion-title" className="mt-2 text-[2.65rem] leading-[0.9] tracking-[0.035em] text-[var(--foreground)]" style={{ fontFamily: "var(--font-bebas)" }}>
+              TREINO CONCLUÍDO
+            </h1>
+            <p className="mt-2 text-xs font-semibold uppercase tracking-[0.1em] text-[var(--text-dim)]">{routineName}</p>
+          </div>
+
+          <div className="animate-fade-in-up mt-4 w-full border-l-2 border-[var(--red-500)] bg-[var(--surface)] px-4 py-3 text-left" style={{ animationDelay: "280ms" }}>
+            <p className="text-sm leading-relaxed text-[var(--text-muted)]">{evalMessage}</p>
+          </div>
+
+          <div className="mt-4 grid w-full grid-cols-2 gap-px overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--border)]">
+            {statItems.map((item) => (
+              <div key={item.label} className="animate-stat-pop bg-[var(--surface)] px-3 py-3.5" style={{ animationDelay: item.delay }}>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--text-dim)]">{item.label}</p>
+                <p className="mt-1 text-[1.85rem] leading-none" style={{ fontFamily: "var(--font-bebas)", color: item.tone === "red" ? "var(--red-500)" : "var(--amber-500)" }}>
+                  {item.value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="animate-fade-in-up mt-4 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-left" style={{ animationDelay: "740ms" }}>
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--text-dim)]">Destaques de hoje</p>
+              <span className="text-[10px] font-semibold text-[var(--text-dim)]">{stats.exercisesCompleted} exercícios</span>
+            </div>
+            <div className="mt-3 grid grid-cols-3 divide-x divide-[var(--border)]">
+              <div className="pr-2">
+                <p className="text-[9px] uppercase tracking-wider text-[var(--text-dim)]">Maior carga</p>
+                <p className="mt-1 text-xl text-[var(--red-500)]" style={{ fontFamily: "var(--font-bebas)" }}>{stats.maxWeight > 0 ? `${stats.maxWeight.toLocaleString("pt-BR")} kg` : "—"}</p>
+              </div>
+              <div className="px-2">
+                <p className="text-[9px] uppercase tracking-wider text-[var(--text-dim)]">Melhor 1RM</p>
+                <p className="mt-1 text-xl text-[var(--amber-500)]" style={{ fontFamily: "var(--font-bebas)" }}>{stats.best1RM > 0 ? `${Math.round(stats.best1RM)} kg` : "—"}</p>
+              </div>
+              <div className="pl-2">
+                <p className="text-[9px] uppercase tracking-wider text-[var(--text-dim)]">Novos PRs</p>
+                <p className="mt-1 text-xl text-[var(--foreground)]" style={{ fontFamily: "var(--font-bebas)" }}>{stats.newPrCount}</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="animate-fade-in-up mt-5 w-full space-y-3" style={{ animationDelay: "820ms" }}>
         <button
           onClick={handleShare}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--amber-500)]/30 bg-[var(--amber-500)]/10 py-4 text-sm font-bold text-[var(--amber-500)] transition-all hover:bg-[var(--amber-500)]/15 active:scale-[0.98]"
+          className="tactile flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--amber-500)]/30 bg-[var(--amber-500)]/8 py-3.5 text-sm font-bold text-[var(--amber-500)] transition-all hover:bg-[var(--amber-500)]/15 active:scale-[0.98]"
         >
           {copied ? (
             <>
@@ -1515,11 +1582,12 @@ function WorkoutComplete({
         </button>
         <button
           onClick={onHome}
-          className="w-full rounded-2xl py-4 text-sm font-bold text-white shadow-lg shadow-[var(--red-600)]/20 transition-all gradient-red hover:shadow-xl active:scale-[0.98]"
+          className="tactile w-full rounded-2xl py-4 text-sm font-bold text-white shadow-lg shadow-[var(--red-600)]/20 transition-all gradient-red hover:shadow-xl active:scale-[0.98]"
         >
           Voltar ao início
         </button>
       </div>
+      </main>
     </div>
   );
 }
