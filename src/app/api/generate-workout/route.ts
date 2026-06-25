@@ -101,7 +101,9 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Gera treino com regras + contexto do ciclo anterior
-    const generated = generateWorkout(profile, catalog, locationType, daysAvailable, previousCycle);
+    const weeklyTarget =
+      daysAvailable ?? Math.max(1, Math.min(6, Math.floor(profile.days_per_week)));
+    const generated = generateWorkout(profile, catalog, locationType, weeklyTarget, previousCycle);
 
     // 5. Desativa anteriores e grava o novo
     const batch = db.batch();
@@ -115,6 +117,7 @@ export async function POST(req: NextRequest) {
     batch.set(workoutRef, {
       user_id: userId,
       workout_type: generated.workout_type,
+      weekly_target: weeklyTarget,
       display_name: displayName,
       source: "generated",
       is_active: true,
@@ -139,6 +142,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       workoutId: workoutRef.id,
       workout_type: generated.workout_type,
+      weekly_target: weeklyTarget,
       display_name: displayName,
       split_variant_id: generated.split_variant_id,
       cycle_phase: generated.cycle_phase,

@@ -16,8 +16,20 @@ function startOfDay(date: Date): Date {
 
 function startOfWeek(date: Date): Date {
   const normalized = startOfDay(date);
-  normalized.setDate(normalized.getDate() - normalized.getDay());
+  const mondayBasedIndex = (normalized.getDay() + 6) % 7;
+  normalized.setDate(normalized.getDate() - mondayBasedIndex);
   return normalized;
+}
+
+function weekDayIndex(date: Date): number {
+  return (date.getDay() + 6) % 7;
+}
+
+function dayKey(date: Date): string {
+  const d = startOfDay(date);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate()
+  ).padStart(2, "0")}`;
 }
 
 function asDate(value: Date): Date {
@@ -53,7 +65,7 @@ export function calculateProgramProgress(
   weeklyGoal: number,
   now: Date = new Date()
 ): ProgramProgressData {
-  const goal = Math.max(1, Math.floor(weeklyGoal));
+  const goal = Math.max(1, Math.floor(workout.weekly_target ?? weeklyGoal));
   const programLogs = getLogsForWorkout(logs, workout);
   const todayStart = startOfDay(now);
   const tomorrowStart = new Date(todayStart);
@@ -62,14 +74,14 @@ export function calculateProgramProgress(
   const programStart = asDate(workout.created_at);
 
   const thisWeekDays = Array<boolean>(7).fill(false);
-  let thisWeekWorkouts = 0;
+  const thisWeekDateKeys = new Set<string>();
   let trainedToday = false;
 
   for (const log of programLogs) {
     const logDate = asDate(log.date);
     if (logDate >= thisWeekStart && logDate <= now) {
-      thisWeekDays[logDate.getDay()] = true;
-      thisWeekWorkouts += 1;
+      thisWeekDays[weekDayIndex(logDate)] = true;
+      thisWeekDateKeys.add(dayKey(logDate));
     }
     if (logDate >= todayStart && logDate < tomorrowStart) {
       trainedToday = true;
@@ -86,15 +98,15 @@ export function calculateProgramProgress(
     // Nunca avalia semanas anteriores ao início deste programa.
     if (checkWeekEnd <= programStart) break;
 
-    let workoutsInWeek = 0;
+    const trainedDaysInWeek = new Set<string>();
     for (const log of programLogs) {
       const logDate = asDate(log.date);
       if (logDate >= checkWeekStart && logDate < checkWeekEnd) {
-        workoutsInWeek += 1;
+        trainedDaysInWeek.add(dayKey(logDate));
       }
     }
 
-    if (workoutsInWeek >= goal) {
+    if (trainedDaysInWeek.size >= goal) {
       weeksOnGoal += 1;
     } else if (weekIndex > 0) {
       // A semana atual ainda está em andamento e não quebra a sequência.
@@ -110,7 +122,7 @@ export function calculateProgramProgress(
   return {
     weeksOnGoal,
     thisWeekDays,
-    thisWeekWorkouts,
+    thisWeekWorkouts: thisWeekDateKeys.size,
     trainedToday,
     programWorkouts: programLogs.length,
   };

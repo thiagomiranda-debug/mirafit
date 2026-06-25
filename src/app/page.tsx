@@ -64,7 +64,7 @@ function nextRoutineFromHistory(
 
 type ActiveWorkout = Workout & { routines: Routine[] };
 
-const DAY_LABELS = ["D", "S", "T", "Q", "Q", "S", "S"];
+const DAY_LABELS = ["S", "T", "Q", "Q", "S", "S", "D"];
 
 export default function Home() {
   const greeting = useGreeting();
@@ -106,41 +106,54 @@ export default function Home() {
   const loadData = useCallback(async () => {
     if (!user) return;
     setProgramProgress(null);
-    const [p, w] = await Promise.all([
-      getUserProfile(user.uid),
-      getActiveWorkoutByLocation(user.uid, locationType),
-    ]);
-    if (!p) {
-      const dismissed = sessionStorage.getItem("mirafit_onboarding_dismissed");
-      if (!dismissed) setShowOnboardingModal(true);
-      setPageLoading(false);
-      return;
-    }
-    setProfile(p);
-    setWorkout(w);
-    setPageLoading(false);
-
-    getCachedWorkoutLogs(user.uid, 120).then((logs) => {
-      const data = w
-        ? calculateProgramProgress(logs, w, p.days_per_week)
-        : null;
-      setProgramProgress(data);
-      setRecentLogs(logs);
-
-      const perm = notificationPermission();
-      if (perm === "default" && !alreadyShownToday(user.uid)) {
-        setShowNotifBanner(true);
-      } else if (
-        perm === "granted" &&
-        data &&
-        !data.trainedToday &&
-        w &&
-        !alreadyShownToday(user.uid)
-      ) {
-        const nextRoutine = nextRoutineFromHistory(w.routines ?? [], logs, w);
-        showTrainingReminder(nextRoutine?.name || "seu treino", user.uid);
+    setGenError("");
+    try {
+      const [p, w] = await Promise.all([
+        getUserProfile(user.uid),
+        getActiveWorkoutByLocation(user.uid, locationType),
+      ]);
+      if (!p) {
+        const dismissed = sessionStorage.getItem("mirafit_onboarding_dismissed");
+        if (!dismissed) setShowOnboardingModal(true);
+        setPageLoading(false);
+        return;
       }
-    });
+      setProfile(p);
+      setWorkout(w);
+      setPageLoading(false);
+
+      getCachedWorkoutLogs(user.uid, 120)
+        .then((logs) => {
+          const data = w
+            ? calculateProgramProgress(logs, w, p.days_per_week)
+            : null;
+          setProgramProgress(data);
+          setRecentLogs(logs);
+
+          const perm = notificationPermission();
+          if (perm === "default" && !alreadyShownToday(user.uid)) {
+            setShowNotifBanner(true);
+          } else if (
+            perm === "granted" &&
+            data &&
+            !data.trainedToday &&
+            w &&
+            !alreadyShownToday(user.uid)
+          ) {
+            const nextRoutine = nextRoutineFromHistory(w.routines ?? [], logs, w);
+            showTrainingReminder(nextRoutine?.name || "seu treino", user.uid);
+          }
+        })
+        .catch(() => {
+          setRecentLogs([]);
+          setProgramProgress(
+            w ? calculateProgramProgress([], w, p.days_per_week) : null
+          );
+        });
+    } catch {
+      setPageLoading(false);
+      setGenError("Não consegui carregar seus dados agora. Verifique sua conexão e tente novamente.");
+    }
   }, [user, locationType]);
 
   useEffect(() => {
@@ -228,6 +241,7 @@ export default function Home() {
   if (!user) return null;
 
   const firstName = profile?.name?.split(" ")[0];
+  const activeWeeklyTarget = workout?.weekly_target ?? profile?.days_per_week ?? 0;
 
   return (
     <div className="flex flex-1 flex-col bg-[var(--background)] pb-24" data-location={locationType}>
@@ -367,9 +381,9 @@ export default function Home() {
             <KPICard
               value={Math.min(
                 programProgress.thisWeekWorkouts,
-                profile?.days_per_week || 0
+                activeWeeklyTarget
               )}
-              fraction={profile?.days_per_week || 0}
+              fraction={activeWeeklyTarget}
               label="Meta semanal"
               iconBg="linear-gradient(135deg, rgba(34,197,94,0.25), rgba(34,197,94,0.10))"
               iconColor="#22C55E"

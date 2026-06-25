@@ -88,17 +88,34 @@ export default function ExerciseSearchModal({
         }
         setExercises(results);
       })
+      .catch(() => {
+        setExercises([]);
+      })
       .finally(() => setLoading(false));
   }, [currentExerciseId, equipmentWhitelist]);
 
   // Swap mode: fetch on mount; Builder mode: fetch muscle groups
   useEffect(() => {
+    let cancelled = false;
+    let frame = 0;
     if (mode === "swap" && activeMuscle) {
-      fetchExercises(activeMuscle);
+      frame = window.requestAnimationFrame(() => {
+        if (!cancelled) fetchExercises(activeMuscle);
+      });
     }
     if (mode === "builder") {
-      getDistinctMuscleGroups().then(setMuscleGroups);
+      getDistinctMuscleGroups()
+        .then((groups) => {
+          if (!cancelled) setMuscleGroups(groups);
+        })
+        .catch(() => {
+          if (!cancelled) setMuscleGroups([]);
+        });
     }
+    return () => {
+      cancelled = true;
+      if (frame) window.cancelAnimationFrame(frame);
+    };
   }, [mode, activeMuscle, fetchExercises]);
 
   const filtered = search.trim()

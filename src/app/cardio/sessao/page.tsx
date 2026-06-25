@@ -106,6 +106,7 @@ function CardioSessaoContent() {
   useEffect(() => {
     if (!modality) return;
 
+    let shouldStartRunning = true;
     const raw = localStorage.getItem(LS_KEY);
     if (raw) {
       try {
@@ -115,19 +116,29 @@ function CardioSessaoContent() {
           if (saved.startedAtMs !== null) {
             // Was running when interrupted — add elapsed since then
             accumulated += Date.now() - saved.startedAtMs;
+            startedAtRef.current = Date.now();
+          } else {
+            shouldStartRunning = false;
+            startedAtRef.current = null;
           }
           accumulatedRef.current = accumulated;
-          startedAtRef.current = Date.now();
-          setElapsedMs(accumulated);
+          window.requestAnimationFrame(() => {
+            setElapsedMs(accumulated);
+            if (!shouldStartRunning) setPhase('paused');
+          });
         }
       } catch {
         // ignore corrupted data
       }
     }
 
-    // Start running immediately
-    startedAtRef.current = startedAtRef.current ?? Date.now();
-    startInterval();
+    if (shouldStartRunning) {
+      // Start running immediately for new sessions or sessions interrupted while running.
+      startedAtRef.current = startedAtRef.current ?? Date.now();
+      startInterval();
+    } else {
+      stopInterval();
+    }
 
     return () => stopInterval();
   }, [modality, startInterval, stopInterval]);

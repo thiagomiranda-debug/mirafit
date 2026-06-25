@@ -544,7 +544,7 @@ export default function LandingPage() {
             </div>
             <div className="lp-stat">
               <span className="lp-stat-val">100%</span>
-              <span className="lp-stat-label">Offline First</span>
+              <span className="lp-stat-label">PWA Instalável</span>
             </div>
           </div>
         </section>
@@ -713,8 +713,8 @@ export default function LandingPage() {
                 },
                 {
                   icon: "📡",
-                  title: "Offline First — Sem Depender do Wi-Fi",
-                  text: "Internet do quartel caiu? O app funciona em modo offline usando Service Worker com cache nativo. Nenhum treino é perdido.",
+                  title: "PWA com Cache de Assets",
+                  text: "Instale no celular e carregue mais rápido: ícones, manifesto e GIFs de exercícios usam cache nativo do navegador.",
                   delay: "reveal-d2",
                 },
                 {
@@ -845,7 +845,7 @@ export default function LandingPage() {
                 <span style={{ fontSize: "1.1rem" }}>⚡</span>
                 <span>
                   <strong style={{ color: "#F59E0B" }}>PWA (Progressive Web App)</strong> — o app
-                  usa tecnologia de cache nativo do navegador. Funciona offline, recebe atualizações
+                  usa tecnologia de cache nativo do navegador para assets e GIFs. Recebe atualizações
                   automáticas e não ocupa espaço de armazenamento como apps convencionais.
                 </span>
               </div>

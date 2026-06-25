@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getFirestore } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
-import { LocationType } from "@/types";
+import { LocationType, UserProfile } from "@/types";
 import { initAdmin } from "@/lib/firebaseAdmin";
 
 interface RoutinePayload {
@@ -41,6 +41,10 @@ export async function POST(req: NextRequest) {
     const locationType: LocationType = body.locationType === "quartel" ? "quartel" : "gym";
     const planName: string = (typeof body.planName === "string" ? body.planName.trim() : "").slice(0, 50) || "Treino Manual";
     const routines: RoutinePayload[] = body.routines;
+    const requestedWeeklyTarget =
+      typeof body.weeklyTarget === "number"
+        ? Math.max(1, Math.min(6, Math.floor(body.weeklyTarget)))
+        : undefined;
 
     // 3. Validate
     if (!Array.isArray(routines) || routines.length === 0) {
@@ -66,6 +70,16 @@ export async function POST(req: NextRequest) {
 
     // 4. Deactivate previous workouts of same location_type
     const db = getFirestore();
+    let weeklyTarget = requestedWeeklyTarget;
+    if (!weeklyTarget) {
+      const userSnap = await db.collection("users").doc(userId).get();
+      const profile = userSnap.exists ? (userSnap.data() as UserProfile) : null;
+      weeklyTarget = Math.max(
+        1,
+        Math.min(6, Math.floor(profile?.days_per_week ?? routines.length))
+      );
+    }
+
     const activeSnap = await db
       .collection("workouts")
       .where("user_id", "==", userId)
@@ -84,6 +98,7 @@ export async function POST(req: NextRequest) {
     batch.set(workoutRef, {
       user_id: userId,
       workout_type: planName,
+      weekly_target: weeklyTarget,
       display_name: planName,
       source: "manual",
       is_active: true,
