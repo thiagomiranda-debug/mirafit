@@ -9,9 +9,14 @@ import { getActiveWorkoutByLocation } from "@/lib/workouts";
 import { getCachedWorkoutLogs } from "@/lib/workoutLogsCache";
 import {
   calculateProgramProgress,
-  getLogsForWorkout,
   ProgramProgressData,
 } from "@/lib/streaks";
+import {
+  buildAdherenceCopy,
+  buildCycleGuidance,
+  getProgramWeekNumber,
+  nextRoutineFromProgramHistory,
+} from "@/lib/programInsights";
 import {
   notificationPermission,
   requestNotificationPermission,
@@ -47,21 +52,6 @@ function toDate(value: unknown): Date | null {
 }
 
 /** Retorna a próxima rotina considerando apenas sessões do programa ativo. */
-function nextRoutineFromHistory(
-  routines: Routine[],
-  logs: WorkoutLog[],
-  workout: Workout
-): Routine | undefined {
-  if (!routines?.length) return undefined;
-  const names = routines.map((r) => r.name);
-  const lastDone = getLogsForWorkout(logs, workout).find((l) =>
-    names.includes(l.routine_name)
-  );
-  if (!lastDone) return routines[0];
-  const idx = names.indexOf(lastDone.routine_name);
-  return routines[(idx + 1) % routines.length];
-}
-
 type ActiveWorkout = Workout & { routines: Routine[] };
 
 const DAY_LABELS = ["S", "T", "Q", "Q", "S", "S", "D"];
@@ -140,7 +130,7 @@ export default function Home() {
             w &&
             !alreadyShownToday(user.uid)
           ) {
-            const nextRoutine = nextRoutineFromHistory(w.routines ?? [], logs, w);
+            const nextRoutine = nextRoutineFromProgramHistory(w.routines ?? [], logs, w);
             showTrainingReminder(nextRoutine?.name || "seu treino", user.uid);
           }
         })
@@ -220,7 +210,7 @@ export default function Home() {
       programProgress &&
       !programProgress.trainedToday
     ) {
-      const nextRoutine = nextRoutineFromHistory(
+      const nextRoutine = nextRoutineFromProgramHistory(
         workout.routines ?? [],
         recentLogs,
         workout
@@ -242,6 +232,16 @@ export default function Home() {
 
   const firstName = profile?.name?.split(" ")[0];
   const activeWeeklyTarget = workout?.weekly_target ?? profile?.days_per_week ?? 0;
+  const nextRoutine = workout
+    ? nextRoutineFromProgramHistory(workout.routines ?? [], recentLogs, workout)
+    : undefined;
+  const nextRoutineHref =
+    workout?.id && nextRoutine?.id
+      ? `/treino?w=${encodeURIComponent(workout.id)}&r=${encodeURIComponent(nextRoutine.id)}`
+      : null;
+  const programWeek = workout ? getProgramWeekNumber(workout) : 1;
+  const adherenceCopy = buildAdherenceCopy(programProgress, activeWeeklyTarget);
+  const cycleGuidance = workout ? buildCycleGuidance(workout) : "";
 
   return (
     <div className="flex flex-1 flex-col bg-[var(--background)] pb-24" data-location={locationType}>
@@ -358,7 +358,7 @@ export default function Home() {
           <div className="stagger grid grid-cols-3 gap-3">
             <KPICard
               value={programProgress.weeksOnGoal}
-              label="Semanas em meta"
+              label="Semanas batendo meta"
               iconBg="linear-gradient(135deg, rgba(220,38,38,0.25), rgba(220,38,38,0.10))"
               iconColor="#EF4444"
               icon={
@@ -369,7 +369,7 @@ export default function Home() {
             />
             <KPICard
               value={programProgress.programWorkouts}
-              label="No programa"
+              label="Treinos neste programa"
               iconBg="linear-gradient(135deg, rgba(245,158,11,0.25), rgba(245,158,11,0.10))"
               iconColor="#F59E0B"
               icon={
@@ -384,7 +384,7 @@ export default function Home() {
                 activeWeeklyTarget
               )}
               fraction={activeWeeklyTarget}
-              label="Meta semanal"
+              label="Aderência da semana"
               iconBg="linear-gradient(135deg, rgba(34,197,94,0.25), rgba(34,197,94,0.10))"
               iconColor="#22C55E"
               icon={
@@ -481,31 +481,50 @@ export default function Home() {
         )}
 
         {/* ── Generate button ── */}
+        {workout && nextRoutineHref && (
+          <Link
+            href={nextRoutineHref}
+            onClick={() => haptic("medium")}
+            className="tactile shimmer-overlay animate-fade-in-up group relative flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-2xl py-4 text-sm font-bold text-white transition-all gradient-red"
+            style={{ boxShadow: "var(--shadow-red)" }}
+          >
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 opacity-0 transition-opacity group-hover:opacity-100" />
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+            </svg>
+            Continuar próximo treino
+          </Link>
+        )}
+
         <button
           onClick={() => { haptic("medium"); setShowConfigModal(true); }}
           disabled={generating || !profile}
-          className="tactile shimmer-overlay animate-fade-in-up group relative flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-2xl py-4 text-sm font-bold text-white transition-all disabled:opacity-60 gradient-red"
-          style={{ boxShadow: "var(--shadow-red)" }}
+          className={`tactile shimmer-overlay animate-fade-in-up group relative flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-2xl py-4 text-sm font-bold transition-all disabled:opacity-60 ${
+            workout
+              ? "border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:border-[var(--red-500)]/30 hover:bg-[var(--surface-2)]"
+              : "text-white gradient-red"
+          }`}
+          style={workout ? undefined : { boxShadow: "var(--shadow-red)" }}
         >
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 opacity-0 transition-opacity group-hover:opacity-100" />
           {generating ? (
             <>
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              Gerando seu treino...
+              Criando programa...
             </>
           ) : workout ? (
             <>
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              Gerar meu treino
+              Criar novo programa
             </>
           ) : (
             <>
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
-              Gerar meu treino
+              Criar meu primeiro programa
             </>
           )}
         </button>
@@ -518,7 +537,7 @@ export default function Home() {
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
           </svg>
-          Montar manualmente
+          Montar ficha manual
         </button>
 
         {genError && (
@@ -528,6 +547,16 @@ export default function Home() {
         {/* ── Active workout ── */}
         {workout ? (
           <div className="animate-fade-in-up">
+            <ProgramSummaryCard
+              workout={workout}
+              nextRoutine={nextRoutine}
+              nextRoutineHref={nextRoutineHref}
+              programWeek={programWeek}
+              weeklyTarget={activeWeeklyTarget}
+              progress={programProgress}
+              adherenceCopy={adherenceCopy}
+              cycleGuidance={cycleGuidance}
+            />
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h2
@@ -639,6 +668,91 @@ export default function Home() {
         </div>
       )}
     </div>
+  );
+}
+
+function ProgramSummaryCard({
+  workout,
+  nextRoutine,
+  nextRoutineHref,
+  programWeek,
+  weeklyTarget,
+  progress,
+  adherenceCopy,
+  cycleGuidance,
+}: {
+  workout: ActiveWorkout;
+  nextRoutine?: Routine;
+  nextRoutineHref: string | null;
+  programWeek: number;
+  weeklyTarget: number;
+  progress: ProgramProgressData | null;
+  adherenceCopy: string;
+  cycleGuidance: string;
+}) {
+  const done = Math.min(progress?.thisWeekWorkouts ?? 0, weeklyTarget);
+  const completion = weeklyTarget > 0 ? Math.min(100, (done / weeklyTarget) * 100) : 0;
+  const location = workout.location_type === "quartel" ? "Quartel" : "Academia";
+
+  return (
+    <section
+      className="mb-4 overflow-hidden rounded-2xl p-4"
+      style={{
+        background: "linear-gradient(135deg, var(--surface), rgba(220,38,38,0.08))",
+        border: "1px solid rgba(239,68,68,0.22)",
+        boxShadow: "0 18px 45px rgba(0,0,0,0.18)",
+      }}
+    >
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--red-500)]">
+            Seu ciclo agora
+          </p>
+          <h2 className="mt-1 truncate text-lg font-bold text-[var(--foreground)]">
+            {getProgramDisplayName(workout)}
+          </h2>
+          <p className="mt-0.5 text-xs font-medium text-[var(--text-muted)]">
+            Semana {programWeek} · {location}
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full bg-[var(--red-600)]/15 px-3 py-1 text-xs font-bold text-[var(--red-500)]">
+          Ativo
+        </span>
+      </div>
+
+      <div className="rounded-xl border border-[var(--border-subtle)] bg-black/10 p-3">
+        <div className="mb-2 flex items-center justify-between gap-3 text-xs">
+          <span className="font-semibold text-[var(--foreground)]">
+            Próximo: {nextRoutine?.name ?? "definir rotina"}
+          </span>
+          <span className="font-bold text-[var(--red-500)]">
+            {done}/{weeklyTarget}
+          </span>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-2)]">
+          <div
+            className="h-full rounded-full gradient-red transition-all duration-500"
+            style={{ width: `${completion}%` }}
+          />
+        </div>
+        <p className="mt-2 text-xs text-[var(--text-muted)]">{adherenceCopy}</p>
+      </div>
+
+      <p className="mt-3 text-xs leading-relaxed text-[var(--text-dim)]">{cycleGuidance}</p>
+
+      {nextRoutineHref && (
+        <Link
+          href={nextRoutineHref}
+          onClick={() => haptic("light")}
+          className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-[var(--red-500)]"
+        >
+          Abrir próximo treino
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
+      )}
+    </section>
   );
 }
 

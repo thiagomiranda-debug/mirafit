@@ -5,7 +5,9 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { getExercisesByIds, updateRoutineExercises } from "@/lib/workouts";
 import { saveWorkoutLog, getPerfAndRecords } from "@/lib/workoutLogs";
-import { LibraryExercise, Routine, ExercisePerformance, SetPerformance, LocationType, WorkoutExercise } from "@/types";
+import { getCachedWorkoutLogs } from "@/lib/workoutLogsCache";
+import { getLogsForWorkout } from "@/lib/streaks";
+import { LibraryExercise, Routine, ExercisePerformance, SetPerformance, LocationType, WorkoutExercise, Workout, WorkoutLog } from "@/types";
 import { QUARTEL_EQUIPMENT_WHITELIST } from "@/lib/workoutGenerator";
 import { doc, getDoc } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase";
@@ -46,6 +48,124 @@ type ExerciseInput = {
   exercise_id: string;
   sets: SetInput[];
 };
+
+type TrainingDraft = {
+  version: 1;
+  userId: string;
+  workoutId: string;
+  routineId: string;
+  inputs: ExerciseInput[];
+  notes: string;
+  elapsed: number;
+  savedAt: number;
+  workoutName: string;
+  routineName: string;
+};
+
+type ExerciseTrend = {
+  sessions: number;
+  deltaKg: number;
+  status: "up" | "flat" | "attention" | "new";
+  label: string;
+};
+
+const DRAFT_VERSION = 1;
+
+function draftKey(userId: string, workoutId: string, routineId: string) {
+  return `mirafit_training_draft:${userId}:${workoutId}:${routineId}`;
+}
+
+function hasDraftWork(draft: TrainingDraft) {
+  return (
+    draft.elapsed > 10 ||
+    draft.notes.trim().length > 0 ||
+    draft.inputs.some((input) =>
+      input.sets.some((set) => set.done || set.weight.trim() || set.reps.trim())
+    )
+  );
+}
+
+function readTrainingDraft(
+  userId: string,
+  workoutId: string,
+  routineId: string
+): TrainingDraft | null {
+  try {
+    const raw = localStorage.getItem(draftKey(userId, workoutId, routineId));
+    if (!raw) return null;
+    const draft = JSON.parse(raw) as TrainingDraft;
+    if (
+      draft.version !== DRAFT_VERSION ||
+      draft.userId !== userId ||
+      draft.workoutId !== workoutId ||
+      draft.routineId !== routineId
+    ) {
+      return null;
+    }
+    return draft;
+  } catch {
+    return null;
+  }
+}
+
+function writeTrainingDraft(draft: TrainingDraft) {
+  localStorage.setItem(draftKey(draft.userId, draft.workoutId, draft.routineId), JSON.stringify(draft));
+}
+
+function clearTrainingDraft(userId: string, workoutId: string, routineId: string) {
+  localStorage.removeItem(draftKey(userId, workoutId, routineId));
+}
+
+function toWorkoutDate(value: unknown): Date {
+  if (value instanceof Date) return value;
+  if (typeof value === "object" && value !== null && "toDate" in value) {
+    const fn = (value as { toDate: () => Date }).toDate;
+    if (typeof fn === "function") return fn.call(value);
+  }
+  if (typeof value === "object" && value !== null && "seconds" in value) {
+    const seconds = (value as { seconds: number }).seconds;
+    if (typeof seconds === "number") return new Date(seconds * 1000);
+  }
+  return new Date();
+}
+
+function buildExerciseTrends(logs: WorkoutLog[], workout: Workout): Record<string, ExerciseTrend> {
+  const scoped = getLogsForWorkout(logs, workout).sort((a, b) => a.date.getTime() - b.date.getTime());
+  const byExercise = new Map<string, number[]>();
+
+  scoped.forEach((log) => {
+    log.performance.forEach((perf) => {
+      const bestWeight =
+        perf.sets && perf.sets.length > 0
+          ? Math.max(0, ...perf.sets.map((set) => set.weight))
+          : perf.weight_lifted ?? 0;
+      if (bestWeight <= 0) return;
+      const values = byExercise.get(perf.exercise_id) ?? [];
+      values.push(bestWeight);
+      byExercise.set(perf.exercise_id, values);
+    });
+  });
+
+  const trends: Record<string, ExerciseTrend> = {};
+  byExercise.forEach((values, exerciseId) => {
+    const first = values[0];
+    const last = values[values.length - 1];
+    const deltaKg = Math.round((last - first) * 10) / 10;
+    const status: ExerciseTrend["status"] =
+      values.length < 2 ? "new" : deltaKg > 0 ? "up" : deltaKg < 0 ? "attention" : "flat";
+    const label =
+      status === "new"
+        ? "Primeira leitura no programa"
+        : status === "up"
+          ? `+${deltaKg} kg desde o início`
+          : status === "attention"
+            ? `${deltaKg} kg desde o início`
+            : "Carga estável neste ciclo";
+    trends[exerciseId] = { sessions: values.length, deltaKg, status, label };
+  });
+
+  return trends;
+}
 
 function formatElapsed(secs: number): string {
   const h = Math.floor(secs / 3600);
@@ -95,6 +215,8 @@ function TreinoContent() {
   const [inputs, setInputs] = useState<ExerciseInput[]>([]);
   const [lastPerf, setLastPerf] = useState<Record<string, SetPerformance[]>>({});
   const [prMap, setPrMap] = useState<Record<string, number>>({});
+  const [exerciseTrends, setExerciseTrends] = useState<Record<string, ExerciseTrend>>({});
+  const [pendingDraft, setPendingDraft] = useState<TrainingDraft | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [swapError, setSwapError] = useState(false);
@@ -151,11 +273,11 @@ function TreinoContent() {
       }
       const workoutLocType = workoutSnap.data().location_type as LocationType | undefined;
       if (workoutLocType) setLocationType(workoutLocType);
-      setWorkoutName(
+      const loadedWorkoutName =
         (workoutSnap.data().display_name as string | undefined) ||
-          (workoutSnap.data().workout_type as string | undefined) ||
-          "Programa de treino"
-      );
+        (workoutSnap.data().workout_type as string | undefined) ||
+        "Programa de treino";
+      setWorkoutName(loadedWorkoutName);
       const routineSnap = await getDoc(
         doc(db, "workouts", workoutId, "routines", routineId)
       );
@@ -168,17 +290,31 @@ function TreinoContent() {
       setRoutine(data);
 
       const ids = data.exercises.map((ex) => ex.exercise_id);
-      const [exMap, { lastPerfMap, personalRecords }] = await Promise.all([
+      const [exMap, { lastPerfMap, personalRecords }, historyLogs] = await Promise.all([
         ids.length > 0 ? getExercisesByIds(ids) : Promise.resolve({}),
         getPerfAndRecords(user.uid),
+        getCachedWorkoutLogs(user.uid, 120),
       ]);
       setExercises(exMap);
       setLastPerf(lastPerfMap);
       setPrMap(personalRecords);
 
+      const workoutData = workoutSnap.data();
+      const workoutForScope: Workout = {
+        id: workoutSnap.id,
+        user_id: user.uid,
+        workout_type: (workoutData.workout_type as Workout["workout_type"]) ?? "custom",
+        display_name: workoutData.display_name as string | undefined,
+        is_active: Boolean(workoutData.is_active),
+        created_at: toWorkoutDate(workoutData.created_at),
+        ended_at: workoutData.ended_at ? toWorkoutDate(workoutData.ended_at) : null,
+        location_type: workoutLocType ?? "gym",
+        weekly_target: workoutData.weekly_target as number | undefined,
+      };
+      setExerciseTrends(buildExerciseTrends(historyLogs, workoutForScope));
+
       const sorted = [...data.exercises].sort((a, b) => a.order - b.order);
-      setInputs(
-        sorted.map((ex) => {
+      const initialInputs = sorted.map((ex) => {
           const prev = lastPerfMap[ex.exercise_id] ?? [];
           return {
             exercise_id: ex.exercise_id,
@@ -194,8 +330,11 @@ function TreinoContent() {
               done: false,
             })),
           };
-        })
-      );
+        });
+      setInputs(initialInputs);
+
+      const draft = readTrainingDraft(user.uid, workoutId, routineId);
+      setPendingDraft(draft && hasDraftWork(draft) ? draft : null);
     } catch {
       setError("Não consegui carregar essa rotina.");
     } finally {
@@ -304,6 +443,44 @@ function TreinoContent() {
     }, 1000);
     return () => clearInterval(interval);
   }, [training]);
+
+  useEffect(() => {
+    if (!training || !user || !workoutId || !routineId || saved) return;
+    const timer = setTimeout(() => {
+      writeTrainingDraft({
+        version: DRAFT_VERSION,
+        userId: user.uid,
+        workoutId,
+        routineId,
+        inputs,
+        notes,
+        elapsed,
+        savedAt: Date.now(),
+        workoutName,
+        routineName: routine?.name ?? "Treino",
+      });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [training, user, workoutId, routineId, saved, inputs, notes, elapsed, workoutName, routine?.name]);
+
+  function restoreDraft(draft: TrainingDraft) {
+    setInputs(draft.inputs);
+    setNotes(draft.notes);
+    setElapsed(draft.elapsed);
+    finalElapsedRef.current = draft.elapsed;
+    trainingStartRef.current = Date.now() - draft.elapsed * 1000;
+    setTraining(true);
+    setPendingDraft(null);
+    haptic("medium");
+  }
+
+  function discardDraft() {
+    if (user && workoutId && routineId) {
+      clearTrainingDraft(user.uid, workoutId, routineId);
+    }
+    setPendingDraft(null);
+    haptic("light");
+  }
 
   function updateSetInput(
     exIdx: number,
@@ -496,6 +673,7 @@ function TreinoContent() {
         notes,
         locationType,
       });
+      clearTrainingDraft(user.uid, workoutId, routineId);
       finalElapsedRef.current = elapsed;
       setSaved(true);
     } catch {
@@ -709,6 +887,14 @@ function TreinoContent() {
 
       {/* Exercises */}
       <main className="flex flex-1 flex-col gap-3 px-4 py-4 pb-28">
+        {pendingDraft && !training && !editMode && (
+          <ResumeDraftCard
+            draft={pendingDraft}
+            onResume={() => restoreDraft(pendingDraft)}
+            onDiscard={discardDraft}
+          />
+        )}
+
         {editMode ? (
           <>
             {sorted.length === 0 ? (
@@ -813,6 +999,7 @@ function TreinoContent() {
                     setInputs={exInput.sets}
                     lastSets={lastPerf[ex.exercise_id] || []}
                     personalRecord={prMap[ex.exercise_id] ?? 0}
+                    trend={exerciseTrends[ex.exercise_id]}
                     onSetUpdate={(setIdx, field, value) =>
                       updateSetInput(idx, setIdx, field, value)
                     }
@@ -1610,6 +1797,54 @@ function WorkoutComplete({
 
 // ─── ExerciseCard ─────────────────────────────────────────────────────────────
 
+function ResumeDraftCard({
+  draft,
+  onResume,
+  onDiscard,
+}: {
+  draft: TrainingDraft;
+  onResume: () => void;
+  onDiscard: () => void;
+}) {
+  const savedAt = new Date(draft.savedAt).toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  return (
+    <div className="animate-fade-in-up rounded-2xl border border-[var(--amber-500)]/25 bg-[var(--amber-500)]/8 p-4">
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--amber-500)]/15 text-[var(--amber-500)]">
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold text-[var(--foreground)]">Treino em andamento</p>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">
+            Salvei seu progresso às {savedAt}. Continue de onde parou em {draft.routineName}.
+          </p>
+        </div>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button
+          onClick={onResume}
+          className="tactile rounded-xl py-2.5 text-xs font-bold text-black transition-all"
+          style={{ background: "var(--amber-500)" }}
+        >
+          Continuar treino
+        </button>
+        <button
+          onClick={onDiscard}
+          className="tactile rounded-xl border border-[var(--border)] bg-[var(--surface)] py-2.5 text-xs font-bold text-[var(--text-muted)] transition-all hover:text-[var(--foreground)]"
+        >
+          Começar do zero
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ExerciseCard({
   name,
   gifUrl,
@@ -1626,6 +1861,7 @@ function ExerciseCard({
   setInputs,
   lastSets,
   personalRecord,
+  trend,
   onSetUpdate,
   onSetDone,
   onSwap,
@@ -1645,6 +1881,7 @@ function ExerciseCard({
   setInputs: SetInput[];
   lastSets: SetPerformance[];
   personalRecord: number;
+  trend?: ExerciseTrend;
   onSetUpdate: (setIdx: number, field: "weight" | "reps", value: string) => void;
   onSetDone: (setIdx: number) => void;
   onSwap?: () => void;
@@ -1753,6 +1990,33 @@ function ExerciseCard({
             <p className="mb-2.5 text-xs text-[var(--text-dim)]">
               Última vez: <span className="font-semibold text-[var(--amber-500)]">{summarizeSets(lastSets)}</span>
             </p>
+          )}
+
+          {trend && (
+            <div
+              className="mb-3 rounded-xl px-3 py-2"
+              style={{
+                background:
+                  trend.status === "up"
+                    ? "rgba(34,197,94,0.08)"
+                    : trend.status === "attention"
+                      ? "rgba(245,158,11,0.08)"
+                      : "rgba(255,255,255,0.04)",
+                border:
+                  trend.status === "up"
+                    ? "1px solid rgba(34,197,94,0.18)"
+                    : trend.status === "attention"
+                      ? "1px solid rgba(245,158,11,0.18)"
+                      : "1px solid var(--border-subtle)",
+              }}
+            >
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--text-dim)]">
+                Tendência no programa
+              </p>
+              <p className="mt-0.5 text-xs font-semibold text-[var(--foreground)]">
+                {trend.label} · {trend.sessions} {trend.sessions === 1 ? "sessão" : "sessões"}
+              </p>
+            </div>
           )}
 
           <div className="space-y-2">

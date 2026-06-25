@@ -10,8 +10,8 @@ interface CycleProtectionModalProps {
 }
 
 const PHASE_LABELS: Record<CyclePhase, string> = {
-  acumulacao: 'Acumulação (volume)',
-  intensificacao: 'Intensificação (força)',
+  acumulacao: "Acumulação (volume)",
+  intensificacao: "Intensificação (força)",
 };
 
 export default function CycleProtectionModal({
@@ -21,6 +21,7 @@ export default function CycleProtectionModal({
   onConfirm,
 }: CycleProtectionModalProps) {
   const daysRounded = Math.max(1, Math.round(daysOld));
+  const remainingToReview = Math.max(0, 28 - daysRounded);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end">
@@ -29,7 +30,10 @@ export default function CycleProtectionModal({
         onClick={onCancel}
       />
 
-      <div className="animate-slide-up relative w-full rounded-t-3xl bg-[var(--surface)] px-5 pb-8 pt-4" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+      <div
+        className="animate-slide-up relative w-full rounded-t-3xl bg-[var(--surface)] px-5 pb-8 pt-4"
+        style={{ borderTop: "1px solid var(--border-subtle)" }}
+      >
         <div
           className="mx-auto mb-5 h-1 w-12 rounded-full"
           style={{ background: "rgba(255,255,255,0.15)" }}
@@ -43,22 +47,31 @@ export default function CycleProtectionModal({
           </div>
           <div>
             <h2 className="text-base font-bold text-[var(--foreground)]">
-              Seu treino ainda é recente
+              Manter ciclo atual?
             </h2>
             <p className="mt-0.5 text-xs text-[var(--text-dim)]">
-              Ciclo atual tem {daysRounded} {daysRounded === 1 ? 'dia' : 'dias'}
+              Seu programa tem {daysRounded} {daysRounded === 1 ? "dia" : "dias"}
             </p>
           </div>
         </div>
 
         <p className="mb-4 text-sm leading-relaxed text-[var(--text-muted)]">
-          Fisiologicamente, o ideal é manter a mesma ficha por <strong className="text-[var(--foreground)]">4 a 6 semanas</strong> para
-          garantir progressão de carga e adaptação neural. Gerar um novo treino agora vai mudar o estímulo antes do tempo ideal.
+          Minha recomendação: mantenha esta ficha por pelo menos{" "}
+          <strong className="text-[var(--foreground)]">4 semanas</strong> para
+          medir progressão real, repetir estímulos e evitar trocar antes do corpo responder.
+          {remainingToReview > 0 && (
+            <>
+              {" "}
+              Faltam cerca de{" "}
+              <strong className="text-[var(--foreground)]">{remainingToReview} dias</strong>{" "}
+              para uma boa revisão.
+            </>
+          )}
         </p>
 
         <div className="mb-5 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5">
           <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-dim)]">
-            Próximo ciclo seria
+            Próxima fase planejada
           </p>
           <p className="mt-0.5 text-sm font-bold text-[var(--foreground)]">
             {PHASE_LABELS[nextPhase]}
@@ -70,13 +83,13 @@ export default function CycleProtectionModal({
             onClick={onCancel}
             className="relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl py-3 text-sm font-bold text-white shadow-lg transition-all hover:shadow-xl gradient-red"
           >
-            Manter treino atual
+            Manter programa atual
           </button>
           <button
             onClick={onConfirm}
             className="flex w-full items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-2)] py-3 text-sm font-bold text-[var(--text-muted)] transition-colors hover:text-[var(--foreground)]"
           >
-            Gerar mesmo assim
+            Criar novo programa mesmo assim
           </button>
         </div>
       </div>

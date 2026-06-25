@@ -10,6 +10,8 @@ import { getExercisesByIds, getWorkoutPrograms } from "@/lib/workouts";
 import { Workout, WorkoutLog } from "@/types";
 import { translateExerciseName } from "@/lib/exerciseNames";
 import { getProgramDisplayName } from "@/lib/workoutPrograms";
+import { calculateProgramProgress } from "@/lib/streaks";
+import { buildAdherenceCopy, getProgramWeekNumber } from "@/lib/programInsights";
 import ExerciseChart, { ChartDataPoint } from "@/components/ExerciseChart";
 import MuscleAnalytics from "@/components/MuscleAnalytics";
 import BottomNav from "@/components/BottomNav";
@@ -347,6 +349,12 @@ function ProgramHistoryGroup({
       : newestLog.workout_name_snapshot || "Programa arquivado";
   const locationType = group.workout?.location_type || newestLog.location_type;
   const totalVolume = group.logs.reduce((sum, log) => sum + getTotalVolume(log), 0);
+  const weeklyTarget = group.workout?.weekly_target ?? 0;
+  const progress =
+    group.workout && weeklyTarget > 0
+      ? calculateProgramProgress(group.logs, group.workout, weeklyTarget)
+      : null;
+  const programWeek = group.workout ? getProgramWeekNumber(group.workout) : null;
   const programStart = group.workout?.created_at.getTime()
     ? group.workout.created_at
     : oldestLog.date;
@@ -416,7 +424,18 @@ function ProgramHistoryGroup({
                   {totalVolume.toLocaleString("pt-BR")} kg movimentados
                 </span>
               )}
+              {programWeek && (
+                <span className="rounded-full bg-[var(--surface-2)] px-2 py-1">
+                  Semana {programWeek}
+                </span>
+              )}
             </div>
+            {progress && (
+              <p className="mt-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
+                {buildAdherenceCopy(progress, weeklyTarget)} · {progress.weeksOnGoal}{" "}
+                {progress.weeksOnGoal === 1 ? "semana batendo meta" : "semanas batendo meta"}.
+              </p>
+            )}
           </div>
         </div>
         <svg
