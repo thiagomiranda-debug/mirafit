@@ -64,6 +64,8 @@ export interface Workout {
   id?: string;
   user_id: string;
   workout_type: string;
+  /** Meta semanal congelada no momento em que o programa foi criado. */
+  weekly_target?: number;
   /** Nome amigável exibido como programa no dashboard e no histórico. */
   display_name?: string;
   /** Origem do programa: gerado pelo app ou montado/importado manualmente. */

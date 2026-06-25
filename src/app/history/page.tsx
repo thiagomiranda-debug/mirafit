@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCachedWorkoutLogs } from "@/lib/workoutLogsCache";
+import { getWorkoutCount } from "@/lib/workoutLogs";
 import { getExercisesByIds, getWorkoutPrograms } from "@/lib/workouts";
 import { Workout, WorkoutLog } from "@/types";
 import { translateExerciseName } from "@/lib/exerciseNames";
@@ -15,6 +16,7 @@ import BottomNav from "@/components/BottomNav";
 import HistorySkeleton from "@/components/skeletons/HistorySkeleton";
 import EmptyState from "@/components/EmptyState";
 import { haptic } from "@/lib/haptics";
+import { useCountUp } from "@/lib/hooks";
 
 type Tab = "treinos" | "evolucao" | "analise";
 
@@ -61,6 +63,7 @@ export default function HistoryPage() {
   const [logs, setLogs] = useState<WorkoutLog[]>([]);
   const [programs, setPrograms] = useState<Workout[]>([]);
   const [exerciseNames, setExerciseNames] = useState<Record<string, string>>({});
+  const [totalWorkouts, setTotalWorkouts] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [tab, setTab] = useState<Tab>("treinos");
@@ -68,12 +71,14 @@ export default function HistoryPage() {
   const loadLogs = useCallback(async () => {
     if (!user) return;
     try {
-      const [data, workoutPrograms] = await Promise.all([
+      const [data, workoutPrograms, exactTotal] = await Promise.all([
         getCachedWorkoutLogs(user.uid, 120),
         getWorkoutPrograms(user.uid),
+        getWorkoutCount(user.uid).catch(() => null),
       ]);
       setLogs(data);
       setPrograms(workoutPrograms);
+      setTotalWorkouts(exactTotal ?? data.length);
 
       const allIds = new Set<string>();
       data.forEach((log) => log.performance.forEach((p) => allIds.add(p.exercise_id)));
@@ -158,7 +163,6 @@ export default function HistoryPage() {
       ),
     [evolutionMap]
   );
-
   if (authLoading || loading) {
     return <HistorySkeleton />;
   }
@@ -184,13 +188,20 @@ export default function HistoryPage() {
     <div className="flex flex-1 flex-col bg-[var(--background)] pb-20">
       {/* Header */}
       <header className="px-5 pb-1 pt-6">
-        <h1
-          className="text-3xl text-[var(--foreground)]"
-          style={{ fontFamily: "var(--font-bebas)" }}
-        >
-          HISTÓRICO
-        </h1>
-        <p className="text-xs text-[var(--text-dim)]">Sessões organizadas por programa de treino</p>
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <h1
+              className="text-3xl text-[var(--foreground)]"
+              style={{ fontFamily: "var(--font-bebas)" }}
+            >
+              HISTÓRICO
+            </h1>
+            <p className="text-xs text-[var(--text-dim)]">
+              Sessões organizadas por programa de treino
+            </p>
+          </div>
+          <HistoryTotal total={totalWorkouts} />
+        </div>
       </header>
 
       {/* Tabs */}
@@ -298,6 +309,24 @@ export default function HistoryPage() {
 }
 
 // ─── LogCard ─────────────────────────────────────────────────────────────────
+
+function HistoryTotal({ total }: { total: number }) {
+  const animatedTotal = useCountUp(total);
+
+  return (
+    <div className="shrink-0 text-right" aria-label={`${total} treinos no total`}>
+      <p
+        className="text-3xl leading-none text-[var(--amber-500)]"
+        style={{ fontFamily: "var(--font-bebas)" }}
+      >
+        {animatedTotal}
+      </p>
+      <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-[var(--text-dim)]">
+        Treinos no total
+      </p>
+    </div>
+  );
+}
 
 function ProgramHistoryGroup({
   group,

@@ -63,6 +63,14 @@ function summarizeSets(sets: SetPerformance[]): string {
   return `${sets.length}×${avgReps} reps @ ${maxWeight} kg`;
 }
 
+function parseCompletedSet(set: SetInput): SetPerformance | null {
+  const weight = Number(set.weight.replace(",", "."));
+  const reps = Number.parseInt(set.reps, 10);
+  if (!Number.isFinite(weight) || weight < 0) return null;
+  if (!Number.isFinite(reps) || reps < 1) return null;
+  return { weight, reps };
+}
+
 export default function TreinoPage() {
   return (
     <Suspense fallback={<TreinoSkeleton />}>
@@ -340,6 +348,11 @@ function TreinoContent() {
     if (exIdx < 0 || exIdx >= inputs.length) return;
     if (setIdx < 0 || setIdx >= inputs[exIdx].sets.length) return;
     const wasDone = inputs[exIdx].sets[setIdx].done;
+    if (!wasDone && !parseCompletedSet(inputs[exIdx].sets[setIdx])) {
+      setError("Informe reps válidas e carga zero ou maior antes de concluir a série.");
+      return;
+    }
+    setError("");
     setInputs((prev) => {
       if (exIdx >= prev.length || setIdx >= prev[exIdx].sets.length) return prev;
       const next = [...prev];
@@ -451,17 +464,20 @@ function TreinoContent() {
 
   async function handleFinish() {
     if (!user || !routine || !workoutId || !routineId) return;
-    const perf: ExercisePerformance[] = inputs
-      .filter((inp) => inp.sets.some((s) => s.done))
-      .map((inp) => ({
+    const perf: ExercisePerformance[] = [];
+    for (const inp of inputs) {
+      const completedSets = inp.sets.filter((s) => s.done);
+      if (completedSets.length === 0) continue;
+      const parsedSets = completedSets.map(parseCompletedSet);
+      if (parsedSets.some((set) => set === null)) {
+        setError("Revise as séries concluídas: reps precisam ser maiores que zero e carga não pode ser negativa.");
+        return;
+      }
+      perf.push({
         exercise_id: inp.exercise_id,
-        sets: inp.sets
-          .filter((s) => s.done)
-          .map((s) => ({
-            weight: parseFloat(s.weight) || 0,
-            reps: parseInt(s.reps) || 0,
-          })),
-      }));
+        sets: parsedSets as SetPerformance[],
+      });
+    }
     if (perf.length === 0) {
       setError("Complete pelo menos uma série para finalizar.");
       return;

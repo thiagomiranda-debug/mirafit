@@ -102,7 +102,8 @@ export async function getExercisesByIds(
 export async function saveGeneratedWorkout(
   userId: string,
   workoutType: string,
-  routines: Omit<Routine, "id">[]
+  routines: Omit<Routine, "id">[],
+  weeklyTarget?: number
 ): Promise<string> {
   const db = getFirebaseDb();
   const batch = writeBatch(db);
@@ -124,6 +125,7 @@ export async function saveGeneratedWorkout(
   batch.set(workoutRef, {
     user_id: userId,
     workout_type: workoutType,
+    weekly_target: weeklyTarget,
     display_name: buildGeneratedProgramName(workoutType),
     source: "generated",
     is_active: true,
